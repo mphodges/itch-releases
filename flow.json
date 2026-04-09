@@ -1,0 +1,11 @@
+{
+  "version": "0.9.0",
+  "url": "https://matthodges.itch.io/flow",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/icons/*.png"
+    ]
+  },
+  "notes": "Prepared for 0.9.0 release."
+}
