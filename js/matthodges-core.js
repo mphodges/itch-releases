@@ -21,8 +21,9 @@
         
         isApk: function() {
             const hasFramework = !!(window.Capacitor || window.cordova || window.location.protocol === 'file:');
+            const isAndroidLocalhost = /android/i.test(navigator.userAgent) && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
             const isAndroidWebView = /wv|android.*version\/[\d.]+.*chrome/i.test(navigator.userAgent);
-            return hasFramework || isAndroidWebView;
+            return hasFramework || isAndroidLocalhost || isAndroidWebView;
         },
 
         isCanvas: function() {
@@ -163,7 +164,8 @@
                     // If we made it here, Capacitor plugins are missing. Fallback to clipboard so it's not a NOOP.
                     try {
                         await navigator.clipboard.writeText(dataStr);
-                        alert(`File download requires Capacitor Filesystem plugins.\n\nYour export data has been copied to your clipboard instead.`);
+                        this.log(`[MHCore] Exported via clipboard fallback (APK detected)`);
+                        alert(`File download requires Capacitor plugins to be bundled.\n\nYour export data has been copied to your clipboard instead.`);
                         return true;
                     } catch (e) {
                         alert("Export failed in this environment. Unable to access clipboard.");
@@ -181,7 +183,7 @@
                 a.click();
                 setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
                 
-                this.log(`[MHCore] Exported data via download to ${filename}`);
+                this.log(`[MHCore] Exported data via standard web download to ${filename}`);
                 return true;
             } catch (err) {
                 this.log(`[MHCore] Export failed: ${err.message}`);
