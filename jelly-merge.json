@@ -1,5 +1,12 @@
 {
-  "version": "3.0.1",
-  "url": "https://matthodges.itch.io/jelly-merge",
-  "notes": "Prepared for 3.0.1 release."
+  "version": "3.0.2",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/themes/**/spritesheet.png",
+      "assets/themes/**/spritesheet.json",
+      "assets/themes/**/map_*.jpg"
+    ],
+    "exclude_patterns": ["*/scripts/*"]
+  }
 }

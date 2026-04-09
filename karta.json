@@ -1,5 +1,6 @@
 {
-  "version": "1.10",
-  "url": "https://matthodges.itch.io/karta",
-  "notes": "Prepared for 1.10 release."
+  "version": "1.11",
+  "bundle_rules": {
+    "include": ["index.html", "assets/**"]
+  }
 }
