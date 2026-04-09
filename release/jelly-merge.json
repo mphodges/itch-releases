@@ -11,5 +11,6 @@
       "assets/themes/**/map_*.jpg"
     ],
     "exclude_patterns": ["*/scripts/*"]
-  }
+  },
+ "url": "https://matthodges.itch.io/jelly-merge"
 }
