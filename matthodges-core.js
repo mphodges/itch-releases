@@ -2,8 +2,14 @@
  * matthodges-core.js
  * * Shared library for common application logic across multiple Canvas/Web/APK projects.
  * Handles environment detection, app updates, safe storage, file I/O, and external links.
+ * * ⚠️ CRITICAL DEPLOYMENT RULE ⚠️
+ * The CDN link (jsDelivr) should ONLY be used as a fallback for the Canvas/AI preview environment.
+ * Live production apps (Itch.io, Android APKs) MUST bundle and use a tested local copy of this file
+ * (e.g., `<script src="assets/js/matthodges-core.js"></script>`). 
+ * * This ensures apps outside Canvas always default to their tested versions and prevents 
+ * active development changes from silently breaking stable, deployed apps.
  * * Usage:
- * Include this script before your main application logic.
+ * Include this script before your main application logic using the local-first fallback pattern.
  * All functions are accessed via the global `MHCore` object.
  */
 
