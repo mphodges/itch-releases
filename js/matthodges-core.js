@@ -20,7 +20,9 @@
         // --- 1. ENVIRONMENT DETECTION ---
         
         isApk: function() {
-            return !!(window.Capacitor || window.cordova || window.location.protocol === 'file:');
+            const hasFramework = !!(window.Capacitor || window.cordova || window.location.protocol === 'file:');
+            const isAndroidWebView = /wv|android.*version\/[\d.]+.*chrome/i.test(navigator.userAgent);
+            return hasFramework || isAndroidWebView;
         },
 
         isCanvas: function() {
@@ -78,15 +80,16 @@
 
         /**
          * Exports data to a JSON file.
-         * Tries the modern Desktop OS File Picker first (maps to Google Drive natively).
-         * Falls back to a standard browser download for Canvas and Mobile APKs.
+         * 1. Tries Modern Desktop File Picker.
+         * 2. Tries Capacitor Native Filesystem/Share (for APKs).
+         * 3. Tries Web Share API.
+         * 4. Falls back to standard <a download> (or clipboard for unsupported WebViews).
          */
         exportData: async function(filename, dataObject) {
             try {
                 const dataStr = JSON.stringify(dataObject, null, 2);
 
                 // 1. Try Modern Web File System API (Desktop OS File Picker)
-                // We disable this in Canvas and APKs because it requires top-level secure contexts
                 if (window.showSaveFilePicker && !this.isCanvas() && !this.isApk()) {
                     try {
                         const handle = await window.showSaveFilePicker({
@@ -100,11 +103,75 @@
                         return true;
                     } catch (err) {
                         if (err.name !== 'AbortError') throw err;
-                        return false; // User cancelled the dialog
+                        return false; 
                     }
                 }
 
-                // 2. Universal Fallback (Canvas / Cordova / Older Browsers)
+                // 2. Capacitor Native Plugins (The correct way for Android APKs)
+                if (window.Capacitor && window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share) {
+                    try {
+                        const { Filesystem, Share } = window.Capacitor.Plugins;
+                        // Write to device temporary cache directory
+                        const writeResult = await Filesystem.writeFile({
+                            path: filename,
+                            data: dataStr,
+                            directory: 'CACHE',
+                            encoding: 'utf8'
+                        });
+                        
+                        // Trigger native share sheet with the file URI
+                        await Share.share({
+                            title: 'Export ' + filename,
+                            url: writeResult.uri,
+                            dialogTitle: 'Save Export'
+                        });
+                        
+                        this.log(`[MHCore] Exported via Capacitor Share: ${writeResult.uri}`);
+                        return true;
+                    } catch (err) {
+                        this.log(`[MHCore] Capacitor File/Share failed: ${err.message}`);
+                        // Fall through
+                    }
+                }
+
+                // 3. Web Share API
+                try {
+                    if (navigator.share) {
+                        const file = new File([dataStr], filename, { type: 'application/json' });
+                        
+                        // Try file share first
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            await navigator.share({ files: [file], title: filename });
+                            this.log(`[MHCore] Exported via native Web Share API (File)`);
+                            return true;
+                        }
+                        // Fallback to raw text share if files aren't supported by this WebView
+                        else if (navigator.canShare && navigator.canShare({ text: dataStr })) {
+                            await navigator.share({ title: filename, text: dataStr });
+                            this.log(`[MHCore] Exported via native Web Share API (Text)`);
+                            return true;
+                        }
+                    }
+                } catch (err) {
+                    if (err.name === 'AbortError') return false; 
+                    this.log(`[MHCore] Web Share failed: ${err.message}`);
+                }
+
+                // 4. Universal Fallback
+                if (this.isApk()) {
+                    // Android WebView silently swallows Anchor downloads. 
+                    // If we made it here, Capacitor plugins are missing. Fallback to clipboard so it's not a NOOP.
+                    try {
+                        await navigator.clipboard.writeText(dataStr);
+                        alert(`File download requires Capacitor Filesystem plugins.\n\nYour export data has been copied to your clipboard instead.`);
+                        return true;
+                    } catch (e) {
+                        alert("Export failed in this environment. Unable to access clipboard.");
+                        return false;
+                    }
+                }
+
+                // Standard Web browser download
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
