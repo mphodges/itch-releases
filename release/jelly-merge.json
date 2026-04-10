@@ -1,5 +1,5 @@
 {
-  "version": "3.0.2",
+  "version": "3.1.0",
   "inject_files": [
     "data/jelly-merge-themes.json"
   ],
@@ -7,11 +7,15 @@
     "include": [
       "index.html",
       "assets/data/",
+      "assets/js/",
       "assets/themes/**/spritesheet.png",
       "assets/themes/**/spritesheet.json",
       "assets/themes/**/map_*.jpg"
     ],
-    "exclude_patterns": ["*/scripts/*"]
+    "exclude_patterns": [
+      "*/scripts/*"
+    ]
   },
- "url": "https://matthodges.itch.io/jelly-merge"
+  "url": "https://matthodges.itch.io/jelly-merge",
+  "notes": "Prepared for 3.1.0 release."
 }
