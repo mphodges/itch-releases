@@ -1,11 +1,9 @@
 {
   "version": "3.0.2",
-  "inject_files": [
-    "data/jelly-merge-themes.json"
-  ],
   "bundle_rules": {
     "include": [
       "index.html",
+      "assets/data/",
       "assets/themes/**/spritesheet.png",
       "assets/themes/**/spritesheet.json",
       "assets/themes/**/map_*.jpg"
