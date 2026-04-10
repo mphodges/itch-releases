@@ -3,8 +3,7 @@
   "bundle_rules": {
     "include": [
       "index.html",
-      "assets/icons",
-      "assets/decks"
+      "assets/"
     ]
   },
   "url": "https://matthodges.itch.io/karta",
