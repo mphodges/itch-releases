@@ -6,7 +6,8 @@
     "include": [
       "index.html",
       "assets/audio/*/*.mp3",
-      "assets/audio/voice/*/*.mp3"
+      "assets/audio/voice/*/*.mp3",
+      "assets/js/"
     ]
   }
 }
