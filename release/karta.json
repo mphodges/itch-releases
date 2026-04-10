@@ -1,11 +1,12 @@
 {
-  "version": "1.12.0",
+  "version": "1.12.4",
   "bundle_rules": {
     "include": [
-      "index.html", 
-      "assets/icons", 
+      "index.html",
+      "assets/icons",
       "assets/decks"
     ]
   },
- "url": "https://matthodges.itch.io/karta"
+  "url": "https://matthodges.itch.io/karta",
+  "notes": "Prepared for 1.12.4 release."
 }
