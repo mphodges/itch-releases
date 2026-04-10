@@ -1,7 +1,7 @@
 {
-  "version": "1.0.2",
+  "version": "1.1.0",
   "url": "https://matthodges.itch.io/just-breathe",
-  "notes": "Prepared for 1.0.2 release.",
+  "notes": "Prepared for 1.1.0 release.",
   "bundle_rules": {
     "include": [
       "index.html",
