@@ -111,7 +111,7 @@ let fbApp, fbAuth, fbFirestore;
                     if (!user) throw new Error("Anonymous Auth Failed");
 
                     // THE HANDSHAKE
-                    const docRef = fbFirestore.doc(db, 'artifacts', appId, 'public', 'data', vaultId);
+                    const docRef = fbFirestore.doc(db, 'artifacts', appId, 'public', 'data', 'vaults', vaultId);
                     const cloudSnap = await fbFirestore.getDoc(docRef);
                     const cloudData = cloudSnap.exists() ? cloudSnap.data() : null;
                     
@@ -181,7 +181,7 @@ let fbApp, fbAuth, fbFirestore;
                 if (!isConnected || !user || !activeVaultId || !activeAppId) return false;
                 
                 try {
-                    const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', activeVaultId);
+                    const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                     await fbFirestore.setDoc(docRef, {
                         payload: payload,
                         lastUpdated: Date.now(),
@@ -234,7 +234,7 @@ let fbApp, fbAuth, fbFirestore;
              */
             _setupListener: function(onUpdateCallback) {
                 if (unsubscribeSnapshot) unsubscribeSnapshot();
-                const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', activeVaultId);
+                const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                 
                 unsubscribeSnapshot = fbFirestore.onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
