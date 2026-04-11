@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.1.3",
+        LIB_VERSION: "1.1.5",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -288,21 +288,32 @@ let fbApp, fbAuth, fbFirestore;
                 if (this._networkListenersAttached) return;
                 this._networkListenersAttached = true;
 
-                const wakeUp = async () => {
-                    if (!isConnected || !db || !navigator.onLine) return;
-                    MHCore.log("[MHCore] Network/Wake event. Forcing Firestore reconnect...", null, 2);
-                    try {
-                        await fbFirestore.disableNetwork(db);
-                        await fbFirestore.enableNetwork(db);
-                    } catch (e) {
-                        MHCore.log(`[MHCore] Wake error: ${e.message}`, null, 0);
-                    }
+                const wakeUp = async (source) => {
+                    if (!isConnected || !db) return;
+                    MHCore.log(`[MHCore] OS Event: ${source}. Verifying network...`, null, 2);
+                    
+                    // Mobile network stacks often need a brief moment to route traffic 
+                    // after the OS declares "online", otherwise Firebase fails the socket again.
+                    setTimeout(async () => {
+                        if (!navigator.onLine) {
+                            MHCore.log(`[MHCore] Wake aborted: navigator.onLine is false`, null, 2);
+                            return;
+                        }
+                        MHCore.log("[MHCore] Executing Firestore network defibrillator...", null, 2);
+                        try {
+                            await fbFirestore.disableNetwork(db);
+                            await fbFirestore.enableNetwork(db);
+                        } catch (e) {
+                            MHCore.log(`[MHCore] Wake error: ${e.message}`, null, 0);
+                        }
+                    }, 500);
                 };
 
-                window.addEventListener('online', wakeUp);
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') wakeUp();
-                });
+                // Fires when the OS network hardware confirms a connection
+                window.addEventListener('online', () => wakeUp('online'));
+                
+                // Fires when dismissing the OS notification shade / control center
+                window.addEventListener('focus', () => wakeUp('focus'));
             }
         },
 
