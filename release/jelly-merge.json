@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "3.2",
   "inject_files": [
     "data/jelly-merge-themes.json"
   ],
@@ -17,5 +17,5 @@
     ]
   },
   "url": "https://matthodges.itch.io/jelly-merge",
-  "notes": "Prepared for 3.1.0 release."
+  "notes": "Prepared for 3.2 release."
 }
