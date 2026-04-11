@@ -126,17 +126,19 @@ let fbApp, fbAuth, fbFirestore;
                         // Scenario B: Local is empty. Pull cloud data silently.
                         MHCore.log("[MHCore] Local empty. Pulling from cloud.");
                         callbacks.onUpdate(cloudData.payload);
-                        this._markSynced();
+                        this._markSynced(cloudData.lastUpdated);
                         
                     } else if (localSyncManifest.lastSynced) {
                         // Scenario C: Both have data, device is known and trusted.
                         if (cloudData.lastUpdated > localSyncManifest.lastSynced) {
                             MHCore.log("[MHCore] Cloud is newer. Pulling.");
                             callbacks.onUpdate(cloudData.payload);
+                            this._markSynced(cloudData.lastUpdated);
                         } else {
                             MHCore.log("[MHCore] Local is newer/equal. Ready to push on next trigger.");
                         }
-                        this._markSynced();
+                        // Note: We deliberately do NOT call _markSynced() if local is newer, 
+                        // to avoid inflating the local watermark before an actual push.
                         
                     } else {
                         // Scenario D: Conflict. Local has data, Cloud has data, device is NOT trusted.
@@ -152,7 +154,7 @@ let fbApp, fbAuth, fbFirestore;
                                     } else if (decision === 'cloud') {
                                         MHCore.log("[MHCore] User resolved conflict: Pulling Cloud.");
                                         callbacks.onUpdate(cloudData.payload);
-                                        this._markSynced();
+                                        this._markSynced(cloudData.lastUpdated);
                                     }
                                     this._setupListener(callbacks.onUpdate);
                                     isConnected = true;
@@ -181,14 +183,15 @@ let fbApp, fbAuth, fbFirestore;
                 if (!isConnected || !user || !activeVaultId || !activeAppId) return false;
                 
                 try {
+                    const pushTime = Date.now();
                     const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                     await fbFirestore.setDoc(docRef, {
                         payload: payload,
-                        lastUpdated: Date.now(),
+                        lastUpdated: pushTime,
                         device: navigator.userAgent
                     }, { merge: true }); 
                     
-                    this._markSynced();
+                    this._markSynced(pushTime);
                     MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId}`);
                     return true;
                 } catch (err) {
@@ -220,11 +223,12 @@ let fbApp, fbAuth, fbFirestore;
 
             /**
              * @private
-             * Records the timestamp of the last successful sync to prevent infinite loops
+             * Records the exact timestamp of the last successful sync to prevent infinite loops
              * when the snapshot listener fires.
+             * @param {number} timestamp - The exact lastUpdated timestamp from the synced payload
              */
-            _markSynced: function() {
-                MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: Date.now() });
+            _markSynced: function(timestamp) {
+                MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: timestamp || Date.now() });
             },
 
             /**
@@ -244,7 +248,7 @@ let fbApp, fbAuth, fbFirestore;
                         // Only trigger a React update if the cloud is strictly newer than our last known sync
                         if (data.lastUpdated > localManifest.lastSynced) {
                             MHCore.log("[MHCore] Remote update received.");
-                            this._markSynced();
+                            this._markSynced(data.lastUpdated);
                             onUpdateCallback(data.payload);
                         }
                     }
