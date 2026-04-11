@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.1.5",
+        LIB_VERSION: "1.1.6",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -294,19 +294,41 @@ let fbApp, fbAuth, fbFirestore;
                     
                     // Mobile network stacks often need a brief moment to route traffic 
                     // after the OS declares "online", otherwise Firebase fails the socket again.
+                    // Increased to 1500ms to allow cellular IP routing and DNS to settle.
                     setTimeout(async () => {
                         if (!navigator.onLine) {
                             MHCore.log(`[MHCore] Wake aborted: navigator.onLine is false`, null, 2);
                             return;
                         }
                         MHCore.log("[MHCore] Executing Firestore network defibrillator...", null, 2);
+                        
+                        // 1. Safely disable (Separate try/catch so a failure here doesn't prevent re-enabling)
                         try {
                             await fbFirestore.disableNetwork(db);
-                            await fbFirestore.enableNetwork(db);
                         } catch (e) {
-                            MHCore.log(`[MHCore] Wake error: ${e.message}`, null, 0);
+                            MHCore.log(`[MHCore] Defibrillator (Disable) warning: ${e.message}`, null, 2);
                         }
-                    }, 500);
+
+                        // 2. Aggressively re-enable with retry logic
+                        // A 404 happens if Firebase tries to resume a dead session ID. 
+                        // We must retry to force it to request a fresh session.
+                        let retries = 3;
+                        while (retries > 0) {
+                            try {
+                                await fbFirestore.enableNetwork(db);
+                                MHCore.log("[MHCore] Defibrillator success. Network re-enabled.", null, 2);
+                                break; // Success!
+                            } catch (e) {
+                                retries--;
+                                MHCore.log(`[MHCore] Defibrillator (Enable) error: ${e.message}. Retries left: ${retries}`, null, 0);
+                                if (retries > 0) {
+                                    await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retrying
+                                } else {
+                                    MHCore.log("[MHCore] Defibrillator failed. Awaiting next OS event.", null, 0);
+                                }
+                            }
+                        }
+                    }, 1500);
                 };
 
                 // Fires when the OS network hardware confirms a connection
