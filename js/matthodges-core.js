@@ -28,6 +28,8 @@ let fbApp, fbAuth, fbFirestore;
     let isConnected = false;
 
     const MHCore = {
+        LIB_VERSION: "1.1.0",
+        verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
         // 1. ENVIRONMENT DETECTION
@@ -119,40 +121,40 @@ let fbApp, fbAuth, fbFirestore;
 
                     if (!cloudData) {
                         // Scenario A: Cloud is empty. Push local data immediately.
-                        MHCore.log("[MHCore] Cloud vault empty. Claiming with local data.");
+                        MHCore.log("[MHCore] Cloud vault empty. Claiming with local data.", null, 1);
                         await this.push(localData);
                         
                     } else if (!localData || Object.keys(localData).length === 0) {
                         // Scenario B: Local is empty. Pull cloud data silently.
-                        MHCore.log("[MHCore] Local empty. Pulling from cloud.");
+                        MHCore.log("[MHCore] Local empty. Pulling from cloud.", null, 1);
                         callbacks.onUpdate(cloudData.payload);
                         this._markSynced(cloudData.lastUpdated);
                         
                     } else if (localSyncManifest.lastSynced) {
                         // Scenario C: Both have data, device is known and trusted.
                         if (cloudData.lastUpdated > localSyncManifest.lastSynced) {
-                            MHCore.log("[MHCore] Cloud is newer. Pulling.");
+                            MHCore.log("[MHCore] Cloud is newer. Pulling.", null, 1);
                             callbacks.onUpdate(cloudData.payload);
                             this._markSynced(cloudData.lastUpdated);
                         } else {
-                            MHCore.log("[MHCore] Local is newer/equal. Ready to push on next trigger.");
+                            MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${localSyncManifest.lastSynced}). Ready to push.`, null, 2);
                         }
                         // Note: We deliberately do NOT call _markSynced() if local is newer, 
                         // to avoid inflating the local watermark before an actual push.
                         
                     } else {
                         // Scenario D: Conflict. Local has data, Cloud has data, device is NOT trusted.
-                        MHCore.log("[MHCore] Sync Conflict Detected!");
+                        MHCore.log("[MHCore] Sync Conflict Detected!", null, 0);
                         
                         return new Promise((resolve) => {
                             callbacks.onConflict(
                                 cloudData.lastUpdated, 
                                 async (decision) => {
                                     if (decision === 'local') {
-                                        MHCore.log("[MHCore] User resolved conflict: Pushing Local.");
+                                        MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 1);
                                         await this.push(localData);
                                     } else if (decision === 'cloud') {
-                                        MHCore.log("[MHCore] User resolved conflict: Pulling Cloud.");
+                                        MHCore.log("[MHCore] User resolved conflict: Pulling Cloud.", null, 1);
                                         callbacks.onUpdate(cloudData.payload);
                                         this._markSynced(cloudData.lastUpdated);
                                     }
@@ -169,7 +171,7 @@ let fbApp, fbAuth, fbFirestore;
                     return true;
 
                 } catch (err) {
-                    MHCore.log(`[MHCore] Sync Connection Error: ${err.message}`);
+                    MHCore.log(`[MHCore] Sync Connection Error: ${err.message}`, null, 0);
                     return false;
                 }
             },
@@ -183,7 +185,13 @@ let fbApp, fbAuth, fbFirestore;
                 if (!isConnected || !user || !activeVaultId || !activeAppId) return false;
                 
                 try {
-                    const pushTime = Date.now();
+                    // Enforce strictly monotonic timestamps to overcome any minor NTP drift
+                    const localManifest = MHCore.storage.get(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: 0 });
+                    const pushTime = Math.max(Date.now(), localManifest.lastSynced + 1);
+                    
+                    // Stamp locally FIRST to prevent Firestore's local cache from triggering an echo loop
+                    this._markSynced(pushTime);
+
                     const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                     await fbFirestore.setDoc(docRef, {
                         payload: payload,
@@ -191,11 +199,10 @@ let fbApp, fbAuth, fbFirestore;
                         device: navigator.userAgent
                     }, { merge: true }); 
                     
-                    this._markSynced(pushTime);
-                    MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId}`);
+                    MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId}`, null, 1);
                     return true;
                 } catch (err) {
-                    MHCore.log(`[MHCore] Sync Push Error: ${err.message}`);
+                    MHCore.log(`[MHCore] Sync Push Error: ${err.message}`, null, 0);
                     return false;
                 }
             },
@@ -218,7 +225,7 @@ let fbApp, fbAuth, fbFirestore;
                 user = null;
                 activeVaultId = null;
                 activeAppId = null;
-                MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.");
+                MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.", null, 1);
             },
 
             /**
@@ -245,14 +252,18 @@ let fbApp, fbAuth, fbFirestore;
                         const data = docSnap.data();
                         const localManifest = MHCore.storage.get(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: 0 });
                         
+                        MHCore.log(`[MHCore] Snapshot Fired. Cloud: ${data.lastUpdated} | Local: ${localManifest.lastSynced}`, null, 2);
+
                         // Only trigger a React update if the cloud is strictly newer than our last known sync
                         if (data.lastUpdated > localManifest.lastSynced) {
-                            MHCore.log("[MHCore] Remote update received.");
+                            MHCore.log("[MHCore] Remote update received.", null, 1);
                             this._markSynced(data.lastUpdated);
                             onUpdateCallback(data.payload);
+                        } else {
+                            MHCore.log("[MHCore] Remote update ignored (Cloud <= Local).", null, 2);
                         }
                     }
-                }, (err) => MHCore.log(`[MHCore] Listener Error: ${err.message}`));
+                }, (err) => MHCore.log(`[MHCore] Listener Error: ${err.message}`, null, 0));
             }
         },
 
@@ -514,8 +525,11 @@ let fbApp, fbAuth, fbFirestore;
          * Standardized internal logger that maintains a history buffer.
          * * @param {string} msg - The log message.
          * @param {any} [data] - Optional object to dump to the console alongside the message.
+         * @param {number} [level] - Verbosity level of this log (0, 1, or 2). Defaults to 1.
          */
-        log: function(msg, data = null) {
+        log: function(msg, data = null, level = 1) {
+            if (level > this.verbosity) return;
+
             const timestamp = new Date().toLocaleTimeString();
             const logEntry = `[${timestamp}] ${msg}`;
             this._logs.push(logEntry);
@@ -530,6 +544,8 @@ let fbApp, fbAuth, fbFirestore;
         /** Clears the internal log buffer. */
         clearLogs: function() { this._logs = []; }
     };
+
+    MHCore.log(`[MHCore] Initialized v${MHCore.LIB_VERSION}`, null, 0);
 
     window.MHCore = MHCore;
 })();
