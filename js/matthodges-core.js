@@ -26,9 +26,10 @@ let fbApp, fbAuth, fbFirestore;
     // --- Internal Sync State Variables ---
     let db, auth, user, activeVaultId, activeAppId, unsubscribeSnapshot;
     let isConnected = false;
+    let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.1.0",
+        LIB_VERSION: "1.1.3",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -85,7 +86,7 @@ let fbApp, fbAuth, fbFirestore;
              */
             connect: async function(configStr, appId, vaultId, localData, callbacks) {
                 if (!configStr || !vaultId || !appId) {
-                    MHCore.log("[MHCore] Sync aborted: Missing config, appId, or vaultId.");
+                    MHCore.log("[MHCore] Sync aborted: Missing config, appId, or vaultId.", null, 0);
                     return false;
                 }
 
@@ -93,13 +94,14 @@ let fbApp, fbAuth, fbFirestore;
                     const firebaseConfig = JSON.parse(configStr);
                     
                     if (!fbApp) {
-                        MHCore.log("[MHCore] Downloading Firebase SDKs...");
+                        MHCore.log("[MHCore] Downloading Firebase SDKs...", null, 1);
                         const [appMod, authMod, fsMod] = await Promise.all([
                             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js'),
                             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js'),
                             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js')
                         ]);
                         fbApp = appMod; fbAuth = authMod; fbFirestore = fsMod;
+                        MHCore.log("[MHCore] Firebase SDKs loaded successfully.", null, 2);
                     }
 
                     const app = fbApp.getApps().length === 0 ? fbApp.initializeApp(firebaseConfig) : fbApp.getApp();
@@ -108,43 +110,47 @@ let fbApp, fbAuth, fbFirestore;
                     activeVaultId = vaultId;
                     activeAppId = appId;
 
+                    MHCore.log("[MHCore] Authenticating with Firebase...", null, 2);
                     await fbAuth.signInAnonymously(auth);
                     user = auth.currentUser;
                     if (!user) throw new Error("Anonymous Auth Failed");
 
                     // THE HANDSHAKE
+                    MHCore.log(`[MHCore] Fetching cloud vault state (${vaultId})...`, null, 2);
                     const docRef = fbFirestore.doc(db, 'artifacts', appId, 'public', 'data', 'vaults', vaultId);
                     const cloudSnap = await fbFirestore.getDoc(docRef);
                     const cloudData = cloudSnap.exists() ? cloudSnap.data() : null;
                     
-                    const localSyncManifest = MHCore.storage.get(`mhcore_sync_${appId}_${vaultId}`, { lastSynced: null });
+                    // Boot up RAM state from physical storage
+                    const localSyncManifest = MHCore.storage.get(`mhcore_sync_${appId}_${vaultId}`, { lastSynced: 0 });
+                    memLastSynced = localSyncManifest.lastSynced;
 
                     if (!cloudData) {
                         // Scenario A: Cloud is empty. Push local data immediately.
-                        MHCore.log("[MHCore] Cloud vault empty. Claiming with local data.", null, 1);
+                        MHCore.log(`[MHCore] Cloud vault empty. Claiming with local data (TS: ${Date.now()}).`, null, 1);
                         await this.push(localData);
                         
                     } else if (!localData || Object.keys(localData).length === 0) {
                         // Scenario B: Local is empty. Pull cloud data silently.
-                        MHCore.log("[MHCore] Local empty. Pulling from cloud.", null, 1);
+                        MHCore.log(`[MHCore] Local empty. Pulling from cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
                         callbacks.onUpdate(cloudData.payload);
                         this._markSynced(cloudData.lastUpdated);
                         
-                    } else if (localSyncManifest.lastSynced) {
+                    } else if (memLastSynced) {
                         // Scenario C: Both have data, device is known and trusted.
-                        if (cloudData.lastUpdated > localSyncManifest.lastSynced) {
-                            MHCore.log("[MHCore] Cloud is newer. Pulling.", null, 1);
+                        if (cloudData.lastUpdated > memLastSynced) {
+                            MHCore.log(`[MHCore] Cloud is newer (Cloud: ${cloudData.lastUpdated} > Local: ${memLastSynced}). Pulling.`, null, 1);
                             callbacks.onUpdate(cloudData.payload);
                             this._markSynced(cloudData.lastUpdated);
                         } else {
-                            MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${localSyncManifest.lastSynced}). Ready to push.`, null, 2);
+                            MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${memLastSynced}). Ready to push.`, null, 2);
                         }
                         // Note: We deliberately do NOT call _markSynced() if local is newer, 
                         // to avoid inflating the local watermark before an actual push.
                         
                     } else {
                         // Scenario D: Conflict. Local has data, Cloud has data, device is NOT trusted.
-                        MHCore.log("[MHCore] Sync Conflict Detected!", null, 0);
+                        MHCore.log(`[MHCore] Sync Conflict Detected! (Cloud TS: ${cloudData.lastUpdated})`, null, 0);
                         
                         return new Promise((resolve) => {
                             callbacks.onConflict(
@@ -154,11 +160,12 @@ let fbApp, fbAuth, fbFirestore;
                                         MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 1);
                                         await this.push(localData);
                                     } else if (decision === 'cloud') {
-                                        MHCore.log("[MHCore] User resolved conflict: Pulling Cloud.", null, 1);
+                                        MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
                                         callbacks.onUpdate(cloudData.payload);
                                         this._markSynced(cloudData.lastUpdated);
                                     }
                                     this._setupListener(callbacks.onUpdate);
+                                    this._setupNetworkListeners();
                                     isConnected = true;
                                     resolve(true);
                                 }
@@ -167,7 +174,9 @@ let fbApp, fbAuth, fbFirestore;
                     }
 
                     this._setupListener(callbacks.onUpdate);
+                    this._setupNetworkListeners();
                     isConnected = true;
+                    MHCore.log("[MHCore] Handshake complete. Listening for changes.", null, 2);
                     return true;
 
                 } catch (err) {
@@ -186,11 +195,12 @@ let fbApp, fbAuth, fbFirestore;
                 
                 try {
                     // Enforce strictly monotonic timestamps to overcome any minor NTP drift
-                    const localManifest = MHCore.storage.get(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: 0 });
-                    const pushTime = Math.max(Date.now(), localManifest.lastSynced + 1);
+                    const pushTime = Math.max(Date.now(), memLastSynced + 1);
                     
                     // Stamp locally FIRST to prevent Firestore's local cache from triggering an echo loop
                     this._markSynced(pushTime);
+
+                    MHCore.log(`[MHCore] Initiating push to Firestore (TS: ${pushTime})...`, null, 2);
 
                     const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                     await fbFirestore.setDoc(docRef, {
@@ -199,7 +209,7 @@ let fbApp, fbAuth, fbFirestore;
                         device: navigator.userAgent
                     }, { merge: true }); 
                     
-                    MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId}`, null, 1);
+                    MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId} (TS: ${pushTime})`, null, 1);
                     return true;
                 } catch (err) {
                     MHCore.log(`[MHCore] Sync Push Error: ${err.message}`, null, 0);
@@ -225,6 +235,7 @@ let fbApp, fbAuth, fbFirestore;
                 user = null;
                 activeVaultId = null;
                 activeAppId = null;
+                memLastSynced = 0; // Wipe RAM state
                 MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.", null, 1);
             },
 
@@ -235,7 +246,8 @@ let fbApp, fbAuth, fbFirestore;
              * @param {number} timestamp - The exact lastUpdated timestamp from the synced payload
              */
             _markSynced: function(timestamp) {
-                MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: timestamp || Date.now() });
+                memLastSynced = timestamp || Date.now();
+                MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: memLastSynced });
             },
 
             /**
@@ -250,20 +262,47 @@ let fbApp, fbAuth, fbFirestore;
                 unsubscribeSnapshot = fbFirestore.onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
-                        const localManifest = MHCore.storage.get(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: 0 });
                         
-                        MHCore.log(`[MHCore] Snapshot Fired. Cloud: ${data.lastUpdated} | Local: ${localManifest.lastSynced}`, null, 2);
+                        MHCore.log(`[MHCore] Snapshot Fired. Cloud: ${data.lastUpdated} | RAM: ${memLastSynced}`, null, 2);
 
-                        // Only trigger a React update if the cloud is strictly newer than our last known sync
-                        if (data.lastUpdated > localManifest.lastSynced) {
-                            MHCore.log("[MHCore] Remote update received.", null, 1);
+                        // Use isolated RAM state, NOT localStorage, to prevent multi-tab crosstalk.
+                        if (data.lastUpdated > memLastSynced) {
+                            MHCore.log(`[MHCore] Remote update received (TS: ${data.lastUpdated}).`, null, 1);
                             this._markSynced(data.lastUpdated);
                             onUpdateCallback(data.payload);
                         } else {
-                            MHCore.log("[MHCore] Remote update ignored (Cloud <= Local).", null, 2);
+                            MHCore.log(`[MHCore] Remote update ignored (Cloud ${data.lastUpdated} <= RAM ${memLastSynced}).`, null, 2);
                         }
                     }
                 }, (err) => MHCore.log(`[MHCore] Listener Error: ${err.message}`, null, 0));
+            },
+
+            _networkListenersAttached: false,
+
+            /**
+             * @private
+             * Hooks into native OS events (Airplane Mode toggle, App Foregrounding)
+             * to aggressively defibrillate the Firestore WebSocket. Fixes "stuffed wombat" bugs.
+             */
+            _setupNetworkListeners: function() {
+                if (this._networkListenersAttached) return;
+                this._networkListenersAttached = true;
+
+                const wakeUp = async () => {
+                    if (!isConnected || !db || !navigator.onLine) return;
+                    MHCore.log("[MHCore] Network/Wake event. Forcing Firestore reconnect...", null, 2);
+                    try {
+                        await fbFirestore.disableNetwork(db);
+                        await fbFirestore.enableNetwork(db);
+                    } catch (e) {
+                        MHCore.log(`[MHCore] Wake error: ${e.message}`, null, 0);
+                    }
+                };
+
+                window.addEventListener('online', wakeUp);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') wakeUp();
+                });
             }
         },
 
@@ -280,7 +319,7 @@ let fbApp, fbAuth, fbFirestore;
          */
         checkForUpdates: async function(appName, currentVersion, callbacks) {
             if (!this.isApk()) {
-                this.log(`[MHCore] Update check bypassed (Not an APK environment)`);
+                this.log(`[MHCore] Update check bypassed (Not an APK environment)`, null, 1);
                 return;
             }
 
@@ -295,17 +334,17 @@ let fbApp, fbAuth, fbFirestore;
                 const skippedVersion = this.storage.get(skipKey, null);
 
                 if (data.version && data.version !== currentVersion && data.version !== skippedVersion) {
-                    this.log(`[MHCore] Update available: ${currentVersion} -> ${data.version}`);
+                    this.log(`[MHCore] Update available: ${currentVersion} -> ${data.version}`, null, 1);
                     
                     if (callbacks && typeof callbacks.onUpdateAvailable === 'function') {
                         const skipFunc = () => this.storage.set(skipKey, data.version);
                         callbacks.onUpdateAvailable(data.url, data.notes, data.version, skipFunc);
                     }
                 } else {
-                    this.log(`[MHCore] App is up to date (${currentVersion}) or update skipped.`);
+                    this.log(`[MHCore] App is up to date (${currentVersion}) or update skipped.`, null, 1);
                 }
             } catch (err) {
-                this.log(`[MHCore] Failed to check for updates: ${err.message}`);
+                this.log(`[MHCore] Failed to check for updates: ${err.message}`, null, 0);
             }
         },
 
@@ -350,7 +389,7 @@ let fbApp, fbAuth, fbFirestore;
                         const writable = await handle.createWritable();
                         await writable.write(dataStr);
                         await writable.close();
-                        this.log(`[MHCore] Exported via native OS picker to ${handle.name}`);
+                        this.log(`[MHCore] Exported via native OS picker to ${handle.name}`, null, 1);
                         return true;
                     } catch (err) {
                         if (err.name !== 'AbortError') throw err; 
@@ -366,10 +405,10 @@ let fbApp, fbAuth, fbFirestore;
                             path: filename, data: dataStr, directory: 'CACHE', encoding: 'utf8'
                         });
                         await Share.share({ title: 'Export ' + filename, url: writeResult.uri, dialogTitle: 'Save Export' });
-                        this.log(`[MHCore] Exported via Capacitor Share: ${writeResult.uri}`);
+                        this.log(`[MHCore] Exported via Capacitor Share: ${writeResult.uri}`, null, 1);
                         return true;
                     } catch (err) {
-                        this.log(`[MHCore] Capacitor File/Share failed: ${err.message}`);
+                        this.log(`[MHCore] Capacitor File/Share failed: ${err.message}`, null, 0);
                     }
                 }
 
@@ -379,24 +418,24 @@ let fbApp, fbAuth, fbFirestore;
                         const file = new File([dataStr], filename, { type: 'application/json' });
                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
                             await navigator.share({ files: [file], title: filename });
-                            this.log(`[MHCore] Exported via native Web Share API (File)`);
+                            this.log(`[MHCore] Exported via native Web Share API (File)`, null, 1);
                             return true;
                         } else if (navigator.canShare && navigator.canShare({ text: dataStr })) {
                             await navigator.share({ title: filename, text: dataStr });
-                            this.log(`[MHCore] Exported via native Web Share API (Text)`);
+                            this.log(`[MHCore] Exported via native Web Share API (Text)`, null, 1);
                             return true;
                         }
                     }
                 } catch (err) {
                     if (err.name === 'AbortError') return false; 
-                    this.log(`[MHCore] Web Share failed: ${err.message}`);
+                    this.log(`[MHCore] Web Share failed: ${err.message}`, null, 0);
                 }
 
                 // STEP 4: Universal Fallback (Clipboard or <a> tag)
                 if (this.isApk()) {
                     try {
                         await navigator.clipboard.writeText(dataStr);
-                        this.log(`[MHCore] Exported via clipboard fallback (APK detected)`);
+                        this.log(`[MHCore] Exported via clipboard fallback (APK detected)`, null, 1);
                         alert(`File download requires Capacitor plugins to be bundled.\n\nYour export data has been copied to your clipboard instead.`);
                         return true;
                     } catch (e) {
@@ -414,10 +453,10 @@ let fbApp, fbAuth, fbFirestore;
                 a.click();
                 setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
                 
-                this.log(`[MHCore] Exported data via standard web download to ${filename}`);
+                this.log(`[MHCore] Exported data via standard web download to ${filename}`, null, 1);
                 return true;
             } catch (err) {
-                this.log(`[MHCore] Export failed: ${err.message}`);
+                this.log(`[MHCore] Export failed: ${err.message}`, null, 0);
                 console.error("Export Error:", err);
                 return false;
             }
@@ -444,7 +483,7 @@ let fbApp, fbAuth, fbFirestore;
                         });
                         const file = await handle.getFile();
                         const text = await file.text();
-                        this.log(`[MHCore] Imported via native OS picker: ${file.name}`);
+                        this.log(`[MHCore] Imported via native OS picker: ${file.name}`, null, 1);
                         return resolve(JSON.parse(text));
                     } catch (err) {
                         if (err.name === 'AbortError') return reject(new Error("User cancelled"));
@@ -464,10 +503,10 @@ let fbApp, fbAuth, fbFirestore;
                     reader.onload = (e) => {
                         try {
                             const parsed = JSON.parse(e.target.result);
-                            this.log(`[MHCore] Successfully imported data from ${file.name}`);
+                            this.log(`[MHCore] Successfully imported data from ${file.name}`, null, 1);
                             resolve(parsed);
                         } catch (err) {
-                            this.log(`[MHCore] Failed to parse JSON from ${file.name}`);
+                            this.log(`[MHCore] Failed to parse JSON from ${file.name}`, null, 0);
                             reject(new Error("Invalid JSON file"));
                         }
                     };
@@ -495,7 +534,7 @@ let fbApp, fbAuth, fbFirestore;
                     const item = localStorage.getItem(key);
                     return item ? JSON.parse(item) : defaultValue;
                 } catch (e) {
-                    MHCore.log(`[MHCore] Storage GET failed for ${key} (Likely Incognito Mode)`);
+                    MHCore.log(`[MHCore] Storage GET failed for ${key} (Likely Incognito Mode)`, null, 0);
                     return defaultValue;
                 }
             },
@@ -510,7 +549,7 @@ let fbApp, fbAuth, fbFirestore;
                 try {
                     localStorage.setItem(key, JSON.stringify(value));
                 } catch (e) {
-                    MHCore.log(`[MHCore] Storage SET failed for ${key} (Quota exceeded or Incognito)`);
+                    MHCore.log(`[MHCore] Storage SET failed for ${key} (Quota exceeded or Incognito)`, null, 0);
                 }
             }
         },
