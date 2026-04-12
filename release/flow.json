@@ -1,5 +1,5 @@
 {
-  "version": "0.9.3",
+  "version": "0.9.7",
   "url": "https://matthodges.itch.io/flow",
   "bundle_rules": {
     "include": [
@@ -7,5 +7,5 @@
       "assets/"
     ]
   },
-  "notes": "Prepared for 0.9.3 release."
+  "notes": "Prepared for 0.9.7 release."
 }
