@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.1.8",
+        LIB_VERSION: "1.2.1",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -225,6 +225,10 @@ let fbApp, fbAuth, fbFirestore;
              */
             disconnect: function() {
                 if (unsubscribeSnapshot) unsubscribeSnapshot();
+                if (this._watchdogTimer) {
+                    clearInterval(this._watchdogTimer);
+                    this._watchdogTimer = null;
+                }
                 
                 // Wipe trust manifest to force a fresh handshake if re-enabled
                 if (activeAppId && activeVaultId) {
@@ -278,77 +282,122 @@ let fbApp, fbAuth, fbFirestore;
             },
 
             _networkListenersAttached: false,
-            _isDefibrillating: false,
+            _isReconnecting: false,
+            _watchdogTimer: null,
+
+            /**
+             * Safely tears down and reconstructs the Firestore network connection.
+             * Used to recover from silent connection drops and OS wake events.
+             * @param {string} source - The event that triggered the reconnection.
+             */
+            reconnectNetwork: async function(source) {
+                if (!isConnected || !db) return;
+                MHCore.log(`[MHCore] OS Event: ${source}. Verifying network...`, null, 2);
+                
+                if (MHCore.sync._isReconnecting) {
+                    MHCore.log(`[MHCore] Wake aborted: Reconnection already in progress.`, null, 2);
+                    return;
+                }
+                MHCore.sync._isReconnecting = true;
+                
+                // Mobile network stacks often need a brief moment to route traffic 
+                // after the OS declares "online", otherwise Firebase fails the socket again.
+                setTimeout(async () => {
+                    if (!navigator.onLine) {
+                        MHCore.log(`[MHCore] Wake aborted: navigator.onLine is false`, null, 2);
+                        MHCore.sync._isReconnecting = false;
+                        return;
+                    }
+                    MHCore.log("[MHCore] Executing Firestore network reset...", null, 2);
+                    
+                    // 1. Safely disable (Separate try/catch so a failure here doesn't prevent re-enabling)
+                    try {
+                        await fbFirestore.disableNetwork(db);
+                    } catch (e) {
+                        MHCore.log(`[MHCore] Network disable warning: ${e.message}`, null, 2);
+                    }
+
+                    // 2. Aggressively re-enable with progressive backoff
+                    let retries = 0;
+                    const maxRetries = 10; // Try for approx 60 seconds total
+                    
+                    while (retries < maxRetries) {
+                        try {
+                            await fbFirestore.enableNetwork(db);
+                            MHCore.log("[MHCore] Network recovery success. Connection re-enabled.", null, 2);
+                            break; // Success!
+                        } catch (e) {
+                            retries++;
+                            const backoff = Math.min(2000 * retries, 10000); // 2s, 4s, 6s, 8s, 10s...
+                            MHCore.log(`[MHCore] Network recovery error: ${e.message}. Retry ${retries}/${maxRetries} in ${backoff/1000}s`, null, 2);
+                            if (retries < maxRetries) {
+                                await new Promise(r => setTimeout(r, backoff));
+                            } else {
+                                MHCore.log("[MHCore] Network recovery attempts exhausted. Yielding to Firebase native reconnect.", null, 0);
+                            }
+                        }
+                    }
+                    
+                    MHCore.sync._isReconnecting = false;
+                }, 1500);
+            },
 
             /**
              * @private
-             * Hooks into native OS events (Airplane Mode toggle, App Foregrounding)
-             * to aggressively defibrillate the Firestore WebSocket. Fixes "stuffed wombat" bugs.
+             * Hooks into native OS events AND starts a Dashboard Watchdog timer.
              */
             _setupNetworkListeners: function() {
                 if (this._networkListenersAttached) return;
                 this._networkListenersAttached = true;
 
-                const wakeUp = async (source) => {
-                    if (!isConnected || !db) return;
-                    MHCore.log(`[MHCore] OS Event: ${source}. Verifying network...`, null, 2);
-                    
-                    if (MHCore._isDefibrillating) {
-                        MHCore.log(`[MHCore] Wake aborted: Defibrillator already running.`, null, 2);
-                        return;
-                    }
-                    MHCore._isDefibrillating = true;
-                    
-                    // Mobile network stacks often need a brief moment to route traffic 
-                    // after the OS declares "online", otherwise Firebase fails the socket again.
-                    // Increased to 1500ms to allow cellular IP routing and DNS to settle.
-                    setTimeout(async () => {
-                        if (!navigator.onLine) {
-                            MHCore.log(`[MHCore] Wake aborted: navigator.onLine is false`, null, 2);
-                            MHCore._isDefibrillating = false;
-                            return;
-                        }
-                        MHCore.log("[MHCore] Executing Firestore network defibrillator...", null, 2);
-                        
-                        // 1. Safely disable (Separate try/catch so a failure here doesn't prevent re-enabling)
-                        try {
-                            await fbFirestore.disableNetwork(db);
-                        } catch (e) {
-                            MHCore.log(`[MHCore] Defibrillator (Disable) warning: ${e.message}`, null, 2);
-                        }
-
-                        // 2. Aggressively re-enable with progressive backoff
-                        // A 404 happens if Firebase tries to resume a dead session ID. 
-                        // We retry to force it to request a fresh session if DNS is sluggish.
-                        let retries = 0;
-                        const maxRetries = 10; // Try for approx 60 seconds total
-                        
-                        while (retries < maxRetries) {
-                            try {
-                                await fbFirestore.enableNetwork(db);
-                                MHCore.log("[MHCore] Defibrillator success. Network re-enabled.", null, 2);
-                                break; // Success!
-                            } catch (e) {
-                                retries++;
-                                const backoff = Math.min(2000 * retries, 10000); // 2s, 4s, 6s, 8s, 10s...
-                                MHCore.log(`[MHCore] Defibrillator error: ${e.message}. Retry ${retries}/${maxRetries} in ${backoff/1000}s`, null, 2);
-                                if (retries < maxRetries) {
-                                    await new Promise(r => setTimeout(r, backoff));
-                                } else {
-                                    MHCore.log("[MHCore] Defibrillator exhausted. Yielding to Firebase native reconnect.", null, 0);
-                                }
-                            }
-                        }
-                        
-                        MHCore._isDefibrillating = false;
-                    }, 1500);
-                };
-
                 // Fires when the OS network hardware confirms a connection
-                window.addEventListener('online', () => wakeUp('online'));
+                window.addEventListener('online', () => this.reconnectNetwork('online'));
                 
                 // Fires when dismissing the OS notification shade / control center
-                window.addEventListener('focus', () => wakeUp('focus'));
+                window.addEventListener('focus', () => this.reconnectNetwork('focus'));
+
+                // Fires when the screen unlocks or app returns from background (Web Standard)
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') this.reconnectNetwork('visibilitychange');
+                });
+
+                // Fires when returning from background (Cordova/Capacitor Native Standard)
+                document.addEventListener('resume', () => this.reconnectNetwork('resume'), false);
+
+                // Start the active idle watchdog
+                this._startWatchdog();
+            },
+
+            /**
+             * @private
+             * Active Dashboard Watchdog.
+             * Fires a tiny ping every 45s to keep the carrier NAT connection hot.
+             * If the ping fails, we know the carrier silently dropped us, and we force a reconnect.
+             */
+            _startWatchdog: function() {
+                if (this._watchdogTimer) clearInterval(this._watchdogTimer);
+                
+                this._watchdogTimer = setInterval(async () => {
+                    if (!isConnected || !navigator.onLine || MHCore.sync._isReconnecting) return;
+                    
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000); 
+                        
+                        // Tiny HEAD request to test if the internet route actually exists
+                        await fetch(`https://raw.githubusercontent.com/mphodges/itch-releases/main/release/flow.json?t=${Date.now()}`, {
+                            method: 'HEAD',
+                            mode: 'no-cors', // Bypasses CORS blocks, we just care if the TCP handshake works
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        MHCore.log("[MHCore] Watchdog ping OK.", null, 2);
+                    } catch (e) {
+                        MHCore.log(`[MHCore] Watchdog detected dead connection (${e.name}). Triggering recovery...`, null, 0);
+                        this.reconnectNetwork('watchdog_timeout');
+                    }
+                }, 45000); // Check every 45 seconds
             }
         },
 
