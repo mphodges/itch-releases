@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.2.5",
+        LIB_VERSION: "1.2.6",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -90,9 +90,20 @@ let fbApp, fbAuth, fbFirestore;
                     return false;
                 }
 
+                let firebaseConfig;
                 try {
-                    const firebaseConfig = JSON.parse(configStr);
-                    
+                    firebaseConfig = JSON.parse(configStr);
+                } catch (err) {
+                    MHCore.log(`[MHCore] Sync Connection Error: Invalid Firebase config format (${err.message}).`, null, 0);
+                    return false;
+                }
+
+                if (!firebaseConfig || !firebaseConfig.apiKey) {
+                    MHCore.log("[MHCore] Sync Connection Error: Config missing apiKey.", null, 0);
+                    return false;
+                }
+
+                try {
                     if (!fbApp) {
                         MHCore.log("[MHCore] Downloading Firebase SDKs...", null, 1);
                         const [appMod, authMod, fsMod] = await Promise.all([
@@ -197,9 +208,14 @@ let fbApp, fbAuth, fbFirestore;
                     // 1. PRE-FLIGHT CHECK: Eliminate Blind Writes
                     let cloudSnap;
                     try {
-                        // Rely purely on the cache metadata check, stripping out the overengineered dual-path logic.
-                        cloudSnap = await fbFirestore.getDoc(docRef);
-                        if (cloudSnap.metadata && cloudSnap.metadata.fromCache) throw new Error("fromCache");
+                        // In Firebase v9+, getDocFromServer explicitly bypasses the offline cache. 
+                        // If the socket is dead, this throws an error and prevents the push entirely.
+                        if (fbFirestore.getDocFromServer) {
+                            cloudSnap = await fbFirestore.getDocFromServer(docRef);
+                        } else {
+                            cloudSnap = await fbFirestore.getDoc(docRef);
+                            if (cloudSnap.metadata && cloudSnap.metadata.fromCache) throw new Error("fromCache");
+                        }
                     } catch (err) {
                         MHCore.log("[MHCore] Push aborted: Socket dead. Preventing offline blind overwrite.", null, 0);
                         if (!this._isReconnecting) this.reconnectNetwork('failed_push');
@@ -337,11 +353,11 @@ let fbApp, fbAuth, fbFirestore;
                         return;
                     }
 
-                    // Physical DNS Pre-Check: Uses standard gstatic 204 endpoint instead of hardcoded app manifest
+                    // Physical DNS Pre-Check: Prevents falsely declaring success when WiFi is connected but internet is dead
                     try {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 3000); 
-                        await fetch(`https://www.gstatic.com/generate_204?t=${Date.now()}`, {
+                        await fetch(`https://raw.githubusercontent.com/mphodges/itch-releases/main/release/flow.json?t=${Date.now()}`, {
                             method: 'HEAD', mode: 'no-cors', signal: controller.signal
                         });
                         clearTimeout(timeoutId);
@@ -432,8 +448,8 @@ let fbApp, fbAuth, fbFirestore;
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 5000); 
                         
-                        // Tiny HEAD request to test if the internet route actually exists (0 bytes payload)
-                        await fetch(`https://www.gstatic.com/generate_204?t=${Date.now()}`, {
+                        // Tiny HEAD request to test if the internet route actually exists
+                        await fetch(`https://raw.githubusercontent.com/mphodges/itch-releases/main/release/flow.json?t=${Date.now()}`, {
                             method: 'HEAD',
                             mode: 'no-cors', // Bypasses CORS blocks, we just care if the TCP handshake works
                             signal: controller.signal
@@ -476,7 +492,10 @@ let fbApp, fbAuth, fbFirestore;
                 const skipKey = `${appName}-skipped-version`;
                 const skippedVersion = this.storage.get(skipKey, null);
 
-                if (data.version && data.version !== currentVersion && data.version !== skippedVersion) {
+                // Compare semantic versions (e.g. 0.9.92 > 0.9.91) instead of basic string inequality
+                const isNewer = data.version && data.version.localeCompare(currentVersion, undefined, { numeric: true, sensitivity: 'base' }) > 0;
+
+                if (isNewer && data.version !== skippedVersion) {
                     this.log(`[MHCore] Update available: ${currentVersion} -> ${data.version}`, null, 1);
                     
                     if (callbacks && typeof callbacks.onUpdateAvailable === 'function') {
