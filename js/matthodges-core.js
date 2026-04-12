@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.2.1",
+        LIB_VERSION: "1.2.2",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -145,8 +145,6 @@ let fbApp, fbAuth, fbFirestore;
                         } else {
                             MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${memLastSynced}). Ready to push.`, null, 2);
                         }
-                        // Note: We deliberately do NOT call _markSynced() if local is newer, 
-                        // to avoid inflating the local watermark before an actual push.
                         
                     } else {
                         // Scenario D: Conflict. Local has data, Cloud has data, device is NOT trusted.
@@ -194,6 +192,31 @@ let fbApp, fbAuth, fbFirestore;
                 if (!isConnected || !user || !activeVaultId || !activeAppId) return false;
                 
                 try {
+                    const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
+                    
+                    // 1. PRE-FLIGHT CHECK: Eliminate Blind Writes
+                    // Use getDoc to verify our WebChannel is actually alive and cloud matches RAM.
+                    const cloudSnap = await fbFirestore.getDoc(docRef);
+                    
+                    // If Firebase serves this from local cache, the network socket is totally dead.
+                    if (cloudSnap.metadata && cloudSnap.metadata.fromCache) {
+                        MHCore.log("[MHCore] Push aborted: Socket dead. Preventing offline blind overwrite.", null, 0);
+                        if (!this._isReconnecting) this.reconnectNetwork('failed_push');
+                        return false;
+                    }
+
+                    // If we made it here, we hit the live server. Check for remote changes we missed.
+                    if (cloudSnap.exists()) {
+                        const cloudData = cloudSnap.data();
+                        if (cloudData.lastUpdated > memLastSynced) {
+                            MHCore.log(`[MHCore] Push blocked! Cloud has newer data (${cloudData.lastUpdated} > ${memLastSynced}).`, null, 0);
+                            this.disconnect();
+                            alert("Sync Disconnected: The cloud was updated by another device while your connection was idle. Please reconnect to safely merge your changes.");
+                            return false;
+                        }
+                    }
+
+                    // 2. SAFE PUSH
                     // Enforce strictly monotonic timestamps to overcome any minor NTP drift
                     const pushTime = Math.max(Date.now(), memLastSynced + 1);
                     
@@ -202,7 +225,6 @@ let fbApp, fbAuth, fbFirestore;
 
                     MHCore.log(`[MHCore] Initiating push to Firestore (TS: ${pushTime})...`, null, 2);
 
-                    const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                     await fbFirestore.setDoc(docRef, {
                         payload: payload,
                         lastUpdated: pushTime,
@@ -283,6 +305,7 @@ let fbApp, fbAuth, fbFirestore;
 
             _networkListenersAttached: false,
             _isReconnecting: false,
+            _lastReconnectStart: 0,
             _watchdogTimer: null,
 
             /**
@@ -295,13 +318,17 @@ let fbApp, fbAuth, fbFirestore;
                 MHCore.log(`[MHCore] OS Event: ${source}. Verifying network...`, null, 2);
                 
                 if (MHCore.sync._isReconnecting) {
-                    MHCore.log(`[MHCore] Wake aborted: Reconnection already in progress.`, null, 2);
-                    return;
+                    // Prevent permanent freeze if a previous disableNetwork hung indefinitely
+                    if (Date.now() - MHCore.sync._lastReconnectStart < 30000) {
+                        MHCore.log(`[MHCore] Wake aborted: Reconnection already in progress.`, null, 2);
+                        return;
+                    }
+                    MHCore.log(`[MHCore] Overriding hung network recovery lock.`, null, 2);
                 }
-                MHCore.sync._isReconnecting = true;
                 
-                // Mobile network stacks often need a brief moment to route traffic 
-                // after the OS declares "online", otherwise Firebase fails the socket again.
+                MHCore.sync._isReconnecting = true;
+                MHCore.sync._lastReconnectStart = Date.now();
+                
                 setTimeout(async () => {
                     if (!navigator.onLine) {
                         MHCore.log(`[MHCore] Wake aborted: navigator.onLine is false`, null, 2);
@@ -310,20 +337,25 @@ let fbApp, fbAuth, fbFirestore;
                     }
                     MHCore.log("[MHCore] Executing Firestore network reset...", null, 2);
                     
-                    // 1. Safely disable (Separate try/catch so a failure here doesn't prevent re-enabling)
+                    // 1. Safely disable with a Promise timeout race so it CANNOT hang forever
                     try {
-                        await fbFirestore.disableNetwork(db);
+                        const disablePromise = fbFirestore.disableNetwork(db);
+                        const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("disableNetwork timeout")), 3000));
+                        await Promise.race([disablePromise, timeoutPromise]);
                     } catch (e) {
                         MHCore.log(`[MHCore] Network disable warning: ${e.message}`, null, 2);
                     }
 
-                    // 2. Aggressively re-enable with progressive backoff
+                    // 2. Aggressively re-enable with progressive backoff and Promise timeouts
                     let retries = 0;
                     const maxRetries = 10; // Try for approx 60 seconds total
                     
                     while (retries < maxRetries) {
                         try {
-                            await fbFirestore.enableNetwork(db);
+                            const enablePromise = fbFirestore.enableNetwork(db);
+                            const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error("enableNetwork timeout")), 5000));
+                            await Promise.race([enablePromise, timeoutPromise]);
+                            
                             MHCore.log("[MHCore] Network recovery success. Connection re-enabled.", null, 2);
                             break; // Success!
                         } catch (e) {
@@ -392,7 +424,7 @@ let fbApp, fbAuth, fbFirestore;
                         });
                         
                         clearTimeout(timeoutId);
-                        MHCore.log("[MHCore] Watchdog ping OK.", null, 2);
+                        // Deliberately hidden from Verbosity 2 to prevent spamming the log screen
                     } catch (e) {
                         MHCore.log(`[MHCore] Watchdog detected dead connection (${e.name}). Triggering recovery...`, null, 0);
                         this.reconnectNetwork('watchdog_timeout');
