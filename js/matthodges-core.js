@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.1.6",
+        LIB_VERSION: "1.1.8",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -278,6 +278,7 @@ let fbApp, fbAuth, fbFirestore;
             },
 
             _networkListenersAttached: false,
+            _isDefibrillating: false,
 
             /**
              * @private
@@ -292,12 +293,19 @@ let fbApp, fbAuth, fbFirestore;
                     if (!isConnected || !db) return;
                     MHCore.log(`[MHCore] OS Event: ${source}. Verifying network...`, null, 2);
                     
+                    if (MHCore._isDefibrillating) {
+                        MHCore.log(`[MHCore] Wake aborted: Defibrillator already running.`, null, 2);
+                        return;
+                    }
+                    MHCore._isDefibrillating = true;
+                    
                     // Mobile network stacks often need a brief moment to route traffic 
                     // after the OS declares "online", otherwise Firebase fails the socket again.
                     // Increased to 1500ms to allow cellular IP routing and DNS to settle.
                     setTimeout(async () => {
                         if (!navigator.onLine) {
                             MHCore.log(`[MHCore] Wake aborted: navigator.onLine is false`, null, 2);
+                            MHCore._isDefibrillating = false;
                             return;
                         }
                         MHCore.log("[MHCore] Executing Firestore network defibrillator...", null, 2);
@@ -309,25 +317,30 @@ let fbApp, fbAuth, fbFirestore;
                             MHCore.log(`[MHCore] Defibrillator (Disable) warning: ${e.message}`, null, 2);
                         }
 
-                        // 2. Aggressively re-enable with retry logic
+                        // 2. Aggressively re-enable with progressive backoff
                         // A 404 happens if Firebase tries to resume a dead session ID. 
-                        // We must retry to force it to request a fresh session.
-                        let retries = 3;
-                        while (retries > 0) {
+                        // We retry to force it to request a fresh session if DNS is sluggish.
+                        let retries = 0;
+                        const maxRetries = 10; // Try for approx 60 seconds total
+                        
+                        while (retries < maxRetries) {
                             try {
                                 await fbFirestore.enableNetwork(db);
                                 MHCore.log("[MHCore] Defibrillator success. Network re-enabled.", null, 2);
                                 break; // Success!
                             } catch (e) {
-                                retries--;
-                                MHCore.log(`[MHCore] Defibrillator (Enable) error: ${e.message}. Retries left: ${retries}`, null, 0);
-                                if (retries > 0) {
-                                    await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retrying
+                                retries++;
+                                const backoff = Math.min(2000 * retries, 10000); // 2s, 4s, 6s, 8s, 10s...
+                                MHCore.log(`[MHCore] Defibrillator error: ${e.message}. Retry ${retries}/${maxRetries} in ${backoff/1000}s`, null, 2);
+                                if (retries < maxRetries) {
+                                    await new Promise(r => setTimeout(r, backoff));
                                 } else {
-                                    MHCore.log("[MHCore] Defibrillator failed. Awaiting next OS event.", null, 0);
+                                    MHCore.log("[MHCore] Defibrillator exhausted. Yielding to Firebase native reconnect.", null, 0);
                                 }
                             }
                         }
+                        
+                        MHCore._isDefibrillating = false;
                     }, 1500);
                 };
 
@@ -357,7 +370,7 @@ let fbApp, fbAuth, fbFirestore;
             }
 
             try {
-                const manifestUrl = `https://raw.githubusercontent.com/mphodges/itch-releases/main/releases/${appName}.json?t=${Date.now()}`;
+                const manifestUrl = `https://raw.githubusercontent.com/mphodges/itch-releases/main/release/${appName}.json?t=${Date.now()}`;
                 const response = await fetch(manifestUrl);
                 
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
