@@ -29,7 +29,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.2.2",
+        LIB_VERSION: "1.2.5",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -195,11 +195,12 @@ let fbApp, fbAuth, fbFirestore;
                     const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
                     
                     // 1. PRE-FLIGHT CHECK: Eliminate Blind Writes
-                    // Use getDoc to verify our WebChannel is actually alive and cloud matches RAM.
-                    const cloudSnap = await fbFirestore.getDoc(docRef);
-                    
-                    // If Firebase serves this from local cache, the network socket is totally dead.
-                    if (cloudSnap.metadata && cloudSnap.metadata.fromCache) {
+                    let cloudSnap;
+                    try {
+                        // Rely purely on the cache metadata check, stripping out the overengineered dual-path logic.
+                        cloudSnap = await fbFirestore.getDoc(docRef);
+                        if (cloudSnap.metadata && cloudSnap.metadata.fromCache) throw new Error("fromCache");
+                    } catch (err) {
                         MHCore.log("[MHCore] Push aborted: Socket dead. Preventing offline blind overwrite.", null, 0);
                         if (!this._isReconnecting) this.reconnectNetwork('failed_push');
                         return false;
@@ -335,6 +336,21 @@ let fbApp, fbAuth, fbFirestore;
                         MHCore.sync._isReconnecting = false;
                         return;
                     }
+
+                    // Physical DNS Pre-Check: Uses standard gstatic 204 endpoint instead of hardcoded app manifest
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 3000); 
+                        await fetch(`https://www.gstatic.com/generate_204?t=${Date.now()}`, {
+                            method: 'HEAD', mode: 'no-cors', signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+                    } catch (e) {
+                        MHCore.log(`[MHCore] Network reset paused: DNS/Internet physically unreachable.`, null, 2);
+                        MHCore.sync._isReconnecting = false;
+                        return; // Firebase will natively retry when the physical route restores
+                    }
+
                     MHCore.log("[MHCore] Executing Firestore network reset...", null, 2);
                     
                     // 1. Safely disable with a Promise timeout race so it CANNOT hang forever
@@ -416,8 +432,8 @@ let fbApp, fbAuth, fbFirestore;
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 5000); 
                         
-                        // Tiny HEAD request to test if the internet route actually exists
-                        await fetch(`https://raw.githubusercontent.com/mphodges/itch-releases/main/release/flow.json?t=${Date.now()}`, {
+                        // Tiny HEAD request to test if the internet route actually exists (0 bytes payload)
+                        await fetch(`https://www.gstatic.com/generate_204?t=${Date.now()}`, {
                             method: 'HEAD',
                             mode: 'no-cors', // Bypasses CORS blocks, we just care if the TCP handshake works
                             signal: controller.signal
