@@ -6,9 +6,13 @@
  * * CORE FEATURES:
  * 1. Environment Detection: Identifies Web, Canvas/Iframe, and APK WebViews.
  * 2. Sovereign Cloud Sync: Total-State Firestore Sync with conflict resolution.
- * 3. File I/O: Export/Import JSON gracefully across Desktop, Web, and Native.
- * 4. Safe Storage: Resilient localStorage wrapper (handles Incognito quotas).
- * 5. Update Checker: Polls GitHub for APK releases.
+ * 3. Update Checker: Polls GitHub release manifests for APK updates.
+ * 4. External Links: Safely routes external URLs depending on the native wrapper.
+ * 5. Config/Data Export: Universal JSON file export (Desktop, Native, Mobile Web).
+ * 6. Config/Data Import: Universal JSON file ingestion via OS pickers.
+ * 7. Safe Storage: Resilient localStorage wrapper (bypasses Incognito/Quota crashes).
+ * 8. Time Machine: Automated background localStorage backups with LZ compression.
+ * 9. Developer Logging: Internal console wrapper with a circular history buffer.
  * * ⚠️ CRITICAL DEPLOYMENT RULE ⚠️
  * Live production apps (Itch.io, Android APKs) MUST bundle and use a tested local 
  * copy of this file (e.g., `<script src="assets/js/matthodges-core.js"></script>`). 
@@ -717,7 +721,218 @@ let fbApp, fbAuth, fbFirestore;
         },
 
         // ====================================================================
-        // 8. DEVELOPER LOGGING
+        // 8. TIME MACHINE (Local Background Backups)
+        // ====================================================================
+
+        backups: {
+            _intervals: {}, // Tracks polling intervals by appId
+            _manifestKey: (appId) => `mhcore_backups_manifest_${appId}`,
+            _dataKey: (appId, id) => `mhcore_backup_data_${appId}_${id}`,
+
+            /**
+             * Dynamically injects the lz-string compression library only if requested.
+             * Prevents bloating apps that don't need compression.
+             * @private
+             */
+	    _loadLZ: async function() {
+		// Stage 1: Already present?
+		if (window.LZString) return;
+
+		const loadScript = (src) => new Promise((resolve, reject) => {
+		    const script = document.createElement('script');
+		    script.src = src;
+		    script.onload = resolve;
+		    script.onerror = reject;
+		    document.head.appendChild(script);
+		});
+
+		try {
+		    // Stage 2: Check local assets first (Best for offline/APK)
+		    MHCore.log("[MHCore] Attempting local LZ-String load...", null, 2);
+		    await loadScript("assets/js/lz-string.min.js");
+		} catch (e) {
+		    try {
+			// Stage 3: Remote fallback
+			MHCore.log("[MHCore] Local load failed. Trying CDN...", null, 2);
+			await loadScript("https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js");
+		    } catch (err) {
+			// Ultimate Fallback: The catch block in _performBackup handles the raw save
+			throw new Error("No LZ-String library found (Local or CDN)");
+		    }
+		}
+	    },
+
+            /**
+             * Starts a silent, recurring background task to snapshot application state.
+             * * @param {string} appId - The unique identifier for the app namespace.
+             * @param {object} options - Configuration object.
+             * @param {function} options.getStateFn - Callback that returns the full JSON state to be saved.
+             * @param {number} [options.intervalMinutes=10] - How often to wake up and check if a backup is needed.
+             * @param {boolean} [options.useCompression=false] - Whether to use LZ-String to crush the payload size.
+             */
+            startAutoBackup: function(appId, options) {
+                if (this._intervals[appId]) clearInterval(this._intervals[appId]);
+                
+                const intervalMs = (options.intervalMinutes || 10) * 60 * 1000;
+                
+                this._intervals[appId] = setInterval(async () => {
+                    await this._performBackup(appId, options);
+                }, intervalMs);
+
+                MHCore.log(`[MHCore] Time Machine active for '${appId}' (Checking every ${options.intervalMinutes || 10}m)`, null, 1);
+                
+                // Fire immediately on start just in case they've been offline/closed for a while
+                this._performBackup(appId, options); 
+            },
+
+            /**
+             * Stops the auto-backup polling for a given app.
+             * * @param {string} appId - The unique identifier for the app namespace.
+             */
+            stopAutoBackup: function(appId) {
+                if (this._intervals[appId]) {
+                    clearInterval(this._intervals[appId]);
+                    delete this._intervals[appId];
+                    MHCore.log(`[MHCore] Time Machine stopped for '${appId}'.`, null, 1);
+                }
+            },
+
+            /**
+             * Evaluates rotation schedules and executes the physical backup if needed.
+             * @private
+             */
+            _performBackup: async function(appId, options) {
+                const manifest = MHCore.storage.get(this._manifestKey(appId), {
+                    hourly: [], // 1 backup every 2 hours (Max 12)
+                    daily: []   // 1 backup every 24 hours (Max 7)
+                });
+
+                const now = Date.now();
+                const twoHours = 2 * 60 * 60 * 1000;
+                const oneDay = 24 * 60 * 60 * 1000;
+
+                let targetBucket = null;
+
+                // 1. Determine if a threshold has been crossed
+                if (manifest.daily.length === 0 || now - manifest.daily[0].timestamp >= oneDay) {
+                    targetBucket = 'daily';
+                } else if (manifest.hourly.length === 0 || now - manifest.hourly[0].timestamp >= twoHours) {
+                    targetBucket = 'hourly';
+                }
+
+                if (!targetBucket) return; // Silent abort: Not enough time has passed
+
+                const rawState = options.getStateFn();
+                if (!rawState) return; // Silent abort: App returned empty state
+
+                let payload = JSON.stringify(rawState);
+                let isCompressed = false;
+
+                // 2. Compress Payload (If Opted-In)
+                if (options.useCompression) {
+                    try {
+                        await this._loadLZ();
+                        payload = window.LZString.compressToUTF16(payload);
+                        isCompressed = true;
+                    } catch (err) {
+                        MHCore.log(`[MHCore] Compression failed, falling back to raw JSON: ${err.message}`, null, 0);
+                    }
+                }
+
+                const backupId = `${targetBucket}_${now}`;
+                const meta = {
+                    id: backupId,
+                    timestamp: now,
+                    type: targetBucket,
+                    compressed: isCompressed,
+                    sizeBytes: payload.length
+                };
+
+                // 3. Physical Storage with Aggressive Quota Pruning
+                try {
+                    localStorage.setItem(this._dataKey(appId, backupId), payload);
+                } catch (e) {
+                    MHCore.log(`[MHCore] Backup quota exceeded. Executing aggressive prune...`, null, 0);
+                    
+                    // We hit the 5MB wall. Delete the oldest daily, then oldest hourly, and try again.
+                    if (manifest.daily.length > 0) {
+                        const victim = manifest.daily.pop();
+                        localStorage.removeItem(this._dataKey(appId, victim.id));
+                    } else if (manifest.hourly.length > 0) {
+                        const victim = manifest.hourly.pop();
+                        localStorage.removeItem(this._dataKey(appId, victim.id));
+                    }
+                    
+                    try {
+                        // Attempt physical save one last time
+                        localStorage.setItem(this._dataKey(appId, backupId), payload);
+                    } catch (fatalError) {
+                        MHCore.log(`[MHCore] Time Machine CRITICAL: Storage completely full. Backup aborted.`, null, 0);
+                        return;
+                    }
+                }
+
+                // 4. Update Manifest & Standard Rotation
+                manifest[targetBucket].unshift(meta);
+
+                if (manifest.hourly.length > 12) {
+                    const removed = manifest.hourly.pop();
+                    localStorage.removeItem(this._dataKey(appId, removed.id));
+                }
+                if (manifest.daily.length > 7) {
+                    const removed = manifest.daily.pop();
+                    localStorage.removeItem(this._dataKey(appId, removed.id));
+                }
+
+                MHCore.storage.set(this._manifestKey(appId), manifest);
+                MHCore.log(`[MHCore] Created ${targetBucket} backup: ${backupId} (${meta.sizeBytes} chars)`, null, 2);
+            },
+
+            /**
+             * Retrieves a flattened list of all available backups for UI rendering.
+             * * @param {string} appId - The unique identifier for the app namespace.
+             * @returns {Array} Array of metadata objects sorted newest to oldest.
+             */
+            list: function(appId) {
+                const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [] });
+                // Combine and sort descending by timestamp
+                return [...manifest.hourly, ...manifest.daily].sort((a, b) => b.timestamp - a.timestamp);
+            },
+
+            /**
+             * Retrieves, decodes, and parses a specific historical backup.
+             * * @param {string} appId - The unique identifier for the app namespace.
+             * @param {string} backupId - The exact ID of the backup (from the .list() output).
+             * @returns {Promise<object|null>} The parsed JSON state, or null if missing/corrupt.
+             */
+            get: async function(appId, backupId) {
+                const payload = localStorage.getItem(this._dataKey(appId, backupId));
+                if (!payload) {
+                    MHCore.log(`[MHCore] Backup missing from disk: ${backupId}`, null, 0);
+                    return null;
+                }
+
+                try {
+                    // Check manifest to see if it needs decompression
+                    const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [] });
+                    const meta = [...manifest.hourly, ...manifest.daily].find(m => m.id === backupId);
+                    
+                    if (meta && meta.compressed) {
+                        await this._loadLZ();
+                        const decompressed = window.LZString.decompressFromUTF16(payload);
+                        return JSON.parse(decompressed);
+                    }
+                    
+                    return JSON.parse(payload);
+                } catch (err) {
+                    MHCore.log(`[MHCore] Failed to parse/decompress backup: ${err.message}`, null, 0);
+                    return null;
+                }
+            }
+        },
+
+        // ====================================================================
+        // 9. DEVELOPER LOGGING
         // ====================================================================
         
         _logs: [],
