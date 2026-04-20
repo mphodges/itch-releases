@@ -33,7 +33,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.2.6",
+        LIB_VERSION: "1.2.7",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -44,7 +44,7 @@ let fbApp, fbAuth, fbFirestore;
          * Detects if the app is running as a packaged Android/iOS application.
          * Used to conditionally route external links and alter file I/O behavior, 
          * as WebViews block standard <a> tag downloads and window.open().
-         * * @returns {boolean} True if running inside Capacitor, Cordova, or a recognized WebView.
+         * @returns {boolean} True if running inside Capacitor, Cordova, or a recognized WebView.
          */
         isApk: function() {
             const hasFramework = !!(window.Capacitor || window.cordova || window.location.protocol === 'file:');
@@ -57,7 +57,7 @@ let fbApp, fbAuth, fbFirestore;
          * Detects if the app is embedded in an iframe (e.g., Itch.io or AI Canvas).
          * Used to disable modern File System APIs (showSaveFilePicker) which throw 
          * security exceptions when called from cross-origin iframes.
-         * * @returns {boolean} True if embedded in an iframe.
+         * @returns {boolean} True if embedded in an iframe.
          */
         isCanvas: function() {
             try { 
@@ -80,15 +80,16 @@ let fbApp, fbAuth, fbFirestore;
 
             /**
              * Connects to Firestore, authenticates anonymously, and performs the Initial Handshake.
-             * Handles edge cases like empty clouds, empty local storage, and sync conflicts.
-             * * @param {string} configStr - Stringified Firebase config object.
+             * @param {string} configStr - Stringified Firebase config object (supports raw console snippets).
              * @param {string} appId - The namespace for the app (e.g., 'karta', 'flow').
              * @param {string} vaultId - The user's secret Sync Key.
              * @param {object} localData - The current local state of the app to be merged/pushed.
-             * @param {object} callbacks - Object containing `onUpdate(payload)` and `onConflict(cloudTimestamp, resolveFn)`.
+             * @param {object} callbacks - Object containing onUpdate, onError, and onConflict handlers.
              * @returns {Promise<boolean>} True if connection and handshake succeed.
              */
-            connect: async function(configStr, appId, vaultId, localData, callbacks) {
+            connect: async function(configStr, appId, vaultId, localData, callbacks = {}) {
+                callbacks = callbacks || {};
+
                 if (!configStr || !vaultId || !appId) {
                     MHCore.log("[MHCore] Sync aborted: Missing config, appId, or vaultId.", null, 0);
                     return false;
@@ -96,14 +97,22 @@ let fbApp, fbAuth, fbFirestore;
 
                 let firebaseConfig;
                 try {
+                    // Try Strict JSON
                     firebaseConfig = JSON.parse(configStr);
                 } catch (err) {
-                    MHCore.log(`[MHCore] Sync Connection Error: Invalid Firebase config format (${err.message}).`, null, 0);
-                    return false;
+                    // Fallback for unquoted keys directly copy-pasted from Firebase Console
+                    try {
+                        firebaseConfig = new Function('return ' + configStr)();
+                    } catch (funcErr) {
+                        MHCore.log(`[MHCore] Sync Connection Error: Invalid Firebase config format.`, null, 0);
+                        if (callbacks.onError) callbacks.onError(new Error("Invalid Firebase config format."));
+                        return false;
+                    }
                 }
 
                 if (!firebaseConfig || !firebaseConfig.apiKey) {
                     MHCore.log("[MHCore] Sync Connection Error: Config missing apiKey.", null, 0);
+                    if (callbacks.onError) callbacks.onError(new Error("Config missing apiKey."));
                     return false;
                 }
 
@@ -143,19 +152,19 @@ let fbApp, fbAuth, fbFirestore;
                     if (!cloudData) {
                         // Scenario A: Cloud is empty. Push local data immediately.
                         MHCore.log(`[MHCore] Cloud vault empty. Claiming with local data (TS: ${Date.now()}).`, null, 1);
-                        await this.push(localData);
+                        await this.push(localData || {});
                         
                     } else if (!localData || Object.keys(localData).length === 0) {
                         // Scenario B: Local is empty. Pull cloud data silently.
                         MHCore.log(`[MHCore] Local empty. Pulling from cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
-                        callbacks.onUpdate(cloudData.payload);
+                        if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
                         this._markSynced(cloudData.lastUpdated);
                         
                     } else if (memLastSynced) {
                         // Scenario C: Both have data, device is known and trusted.
                         if (cloudData.lastUpdated > memLastSynced) {
                             MHCore.log(`[MHCore] Cloud is newer (Cloud: ${cloudData.lastUpdated} > Local: ${memLastSynced}). Pulling.`, null, 1);
-                            callbacks.onUpdate(cloudData.payload);
+                            if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
                             this._markSynced(cloudData.lastUpdated);
                         } else {
                             MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${memLastSynced}). Ready to push.`, null, 2);
@@ -166,23 +175,33 @@ let fbApp, fbAuth, fbFirestore;
                         MHCore.log(`[MHCore] Sync Conflict Detected! (Cloud TS: ${cloudData.lastUpdated})`, null, 0);
                         
                         return new Promise((resolve) => {
-                            callbacks.onConflict(
-                                cloudData.lastUpdated, 
-                                async (decision) => {
-                                    if (decision === 'local') {
-                                        MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 1);
-                                        await this.push(localData);
-                                    } else if (decision === 'cloud') {
-                                        MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
-                                        callbacks.onUpdate(cloudData.payload);
-                                        this._markSynced(cloudData.lastUpdated);
+                            if (callbacks.onConflict) {
+                                callbacks.onConflict(
+                                    cloudData.lastUpdated, 
+                                    async (decision) => {
+                                        if (decision === 'local') {
+                                            MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 1);
+                                            await this.push(localData || {});
+                                        } else if (decision === 'cloud') {
+                                            MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
+                                            if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
+                                            this._markSynced(cloudData.lastUpdated);
+                                        }
+                                        this._setupListener(callbacks.onUpdate);
+                                        this._setupNetworkListeners();
+                                        isConnected = true;
+                                        resolve(true);
                                     }
-                                    this._setupListener(callbacks.onUpdate);
-                                    this._setupNetworkListeners();
-                                    isConnected = true;
-                                    resolve(true);
-                                }
-                            );
+                                );
+                            } else {
+                                MHCore.log("[MHCore] Conflict bypassed (no handler). Assuming Cloud override.", null, 1);
+                                if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
+                                this._markSynced(cloudData.lastUpdated);
+                                this._setupListener(callbacks.onUpdate);
+                                this._setupNetworkListeners();
+                                isConnected = true;
+                                resolve(true);
+                            }
                         });
                     }
 
@@ -194,13 +213,14 @@ let fbApp, fbAuth, fbFirestore;
 
                 } catch (err) {
                     MHCore.log(`[MHCore] Sync Connection Error: ${err.message}`, null, 0);
+                    if (callbacks.onError) callbacks.onError(err);
                     return false;
                 }
             },
 
             /**
              * Pushes the current application state to the active Cloud Vault.
-             * * @param {object} payload - The complete JSON state of the application.
+             * @param {object} payload - The complete JSON state of the application.
              * @returns {Promise<boolean>} True if the push was successful.
              */
             push: async function(payload) {
@@ -316,12 +336,14 @@ let fbApp, fbAuth, fbFirestore;
                         if (data.lastUpdated > memLastSynced) {
                             MHCore.log(`[MHCore] Remote update received (TS: ${data.lastUpdated}).`, null, 1);
                             this._markSynced(data.lastUpdated);
-                            onUpdateCallback(data.payload);
+                            if (onUpdateCallback) onUpdateCallback(data.payload);
                         } else {
                             MHCore.log(`[MHCore] Remote update ignored (Cloud ${data.lastUpdated} <= RAM ${memLastSynced}).`, null, 2);
                         }
                     }
-                }, (err) => MHCore.log(`[MHCore] Listener Error: ${err.message}`, null, 0));
+                }, (err) => {
+                    MHCore.log(`[MHCore] Listener Error: ${err.message}`, null, 0);
+                });
             },
 
             _networkListenersAttached: false,
@@ -476,7 +498,7 @@ let fbApp, fbAuth, fbFirestore;
         /**
          * Polls the GitHub release manifest to check if a newer APK version is available.
          * Only executes in APK environments (bypassed on web).
-         * * @param {string} appName - The GitHub project name (e.g., 'karta').
+         * @param {string} appName - The GitHub project name (e.g., 'karta').
          * @param {string} currentVersion - The running version string (e.g., '1.12.0').
          * @param {object} callbacks - Contains `onUpdateAvailable(url, notes, version, skipFunc)`.
          */
@@ -520,7 +542,7 @@ let fbApp, fbAuth, fbFirestore;
         
         /**
          * Safely opens an external URL, adapting to the Cordova/Capacitor environment.
-         * * @param {string} url - The external URL to open.
+         * @param {string} url - The external URL to open.
          */
         openLink: function(url) {
             if (window.cordova) {
@@ -537,7 +559,7 @@ let fbApp, fbAuth, fbFirestore;
         /**
          * Exports a JSON object to a file, utilizing a 4-step fallback waterfall 
          * to guarantee delivery regardless of device or WebView restrictions.
-         * * @param {string} filename - Suggested name for the exported file.
+         * @param {string} filename - Suggested name for the exported file.
          * @param {object} dataObject - The JSON data to serialize and export.
          * @returns {Promise<boolean>} True if the export successfully resolved.
          */
@@ -635,7 +657,7 @@ let fbApp, fbAuth, fbFirestore;
         /**
          * Triggers an OS file picker dialog, parses the selected JSON file, 
          * and returns the resulting object.
-         * * @returns {Promise<object>} The parsed JSON data.
+         * @returns {Promise<object>} The parsed JSON data.
          */
         importData: async function() {
             return new Promise(async (resolve, reject) => {
@@ -691,7 +713,7 @@ let fbApp, fbAuth, fbFirestore;
         storage: {
             /**
              * Safely retrieves and parses JSON from localStorage.
-             * * @param {string} key - The localStorage key.
+             * @param {string} key - The localStorage key.
              * @param {any} defaultValue - Fallback value if key doesn't exist or storage throws.
              * @returns {any} The parsed value or defaultValue.
              */
@@ -708,7 +730,7 @@ let fbApp, fbAuth, fbFirestore;
             /**
              * Safely stringifies and sets a value in localStorage.
              * Prevents the app from crashing if storage is full or disabled (e.g., iOS Safari Private).
-             * * @param {string} key - The localStorage key.
+             * @param {string} key - The localStorage key.
              * @param {any} value - The value to store.
              */
             set: function(key, value) {
@@ -734,37 +756,37 @@ let fbApp, fbAuth, fbFirestore;
              * Prevents bloating apps that don't need compression.
              * @private
              */
-	    _loadLZ: async function() {
-		// Stage 1: Already present?
-		if (window.LZString) return;
+            _loadLZ: async function() {
+                // Stage 1: Already present?
+                if (window.LZString) return;
 
-		const loadScript = (src) => new Promise((resolve, reject) => {
-		    const script = document.createElement('script');
-		    script.src = src;
-		    script.onload = resolve;
-		    script.onerror = reject;
-		    document.head.appendChild(script);
-		});
+                const loadScript = (src) => new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
 
-		try {
-		    // Stage 2: Check local assets first (Best for offline/APK)
-		    MHCore.log("[MHCore] Attempting local LZ-String load...", null, 2);
-		    await loadScript("assets/js/lz-string.min.js");
-		} catch (e) {
-		    try {
-			// Stage 3: Remote fallback
-			MHCore.log("[MHCore] Local load failed. Trying CDN...", null, 2);
-			await loadScript("https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js");
-		    } catch (err) {
-			// Ultimate Fallback: The catch block in _performBackup handles the raw save
-			throw new Error("No LZ-String library found (Local or CDN)");
-		    }
-		}
-	    },
+                try {
+                    // Stage 2: Check local assets first (Best for offline/APK)
+                    MHCore.log("[MHCore] Attempting local LZ-String load...", null, 2);
+                    await loadScript("assets/js/lz-string.min.js");
+                } catch (e) {
+                    try {
+                        // Stage 3: Remote fallback
+                        MHCore.log("[MHCore] Local load failed. Trying CDN...", null, 2);
+                        await loadScript("https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js");
+                    } catch (err) {
+                        // Ultimate Fallback: The catch block in _performBackup handles the raw save
+                        throw new Error("No LZ-String library found (Local or CDN)");
+                    }
+                }
+            },
 
             /**
              * Starts a silent, recurring background task to snapshot application state.
-             * * @param {string} appId - The unique identifier for the app namespace.
+             * @param {string} appId - The unique identifier for the app namespace.
              * @param {object} options - Configuration object.
              * @param {function} options.getStateFn - Callback that returns the full JSON state to be saved.
              * @param {number} [options.intervalMinutes=10] - How often to wake up and check if a backup is needed.
@@ -787,7 +809,7 @@ let fbApp, fbAuth, fbFirestore;
 
             /**
              * Stops the auto-backup polling for a given app.
-             * * @param {string} appId - The unique identifier for the app namespace.
+             * @param {string} appId - The unique identifier for the app namespace.
              */
             stopAutoBackup: function(appId) {
                 if (this._intervals[appId]) {
@@ -890,7 +912,7 @@ let fbApp, fbAuth, fbFirestore;
 
             /**
              * Retrieves a flattened list of all available backups for UI rendering.
-             * * @param {string} appId - The unique identifier for the app namespace.
+             * @param {string} appId - The unique identifier for the app namespace.
              * @returns {Array} Array of metadata objects sorted newest to oldest.
              */
             list: function(appId) {
@@ -901,7 +923,7 @@ let fbApp, fbAuth, fbFirestore;
 
             /**
              * Retrieves, decodes, and parses a specific historical backup.
-             * * @param {string} appId - The unique identifier for the app namespace.
+             * @param {string} appId - The unique identifier for the app namespace.
              * @param {string} backupId - The exact ID of the backup (from the .list() output).
              * @returns {Promise<object|null>} The parsed JSON state, or null if missing/corrupt.
              */
@@ -939,7 +961,7 @@ let fbApp, fbAuth, fbFirestore;
         
         /**
          * Standardized internal logger that maintains a history buffer.
-         * * @param {string} msg - The log message.
+         * @param {string} msg - The log message.
          * @param {any} [data] - Optional object to dump to the console alongside the message.
          * @param {number} [level] - Verbosity level of this log (0, 1, or 2). Defaults to 1.
          */
