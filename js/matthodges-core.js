@@ -11,13 +11,20 @@
  * 5. Config/Data Export: Universal JSON file export (Desktop, Native, Mobile Web).
  * 6. Config/Data Import: Universal JSON file ingestion via OS pickers.
  * 7. Safe Storage: Resilient localStorage wrapper (bypasses Incognito/Quota crashes).
- * 8. Time Machine: Automated background localStorage backups with LZ compression.
+ * 8. Time Machine/Backups: Automated and manual localStorage backups with LZ compression.
  * 9. Developer Logging: Internal console wrapper with a circular history buffer.
  * * ⚠️ CRITICAL DEPLOYMENT RULE ⚠️
  * Live production apps (Itch.io, Android APKs) MUST bundle and use a tested local 
  * copy of this file (e.g., `<script src="assets/js/matthodges-core.js"></script>`). 
  * ============================================================================
  */
+
+// CRITICAL ALIAS: Prevents `lucide-react` UMD bundles from crashing by forcing
+// them to resolve the lowercase `react` object to the standard `window.React` global.
+Object.defineProperty(window, 'react', {
+    get: () => window.React,
+    set: (val) => { window.React = val; }
+});
 
 // Firebase module references. 
 // Loaded dynamically in `sync.connect()` so offline apps don't waste bandwidth.
@@ -33,7 +40,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.2.7",
+        LIB_VERSION: "1.2.8",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -820,13 +827,75 @@ let fbApp, fbAuth, fbFirestore;
             },
 
             /**
+             * Explicitly creates a non-expiring manual backup snapshot.
+             * @param {string} appId - The unique identifier for the app namespace.
+             * @param {object} options - Configuration options (getStateFn, useCompression)
+             * @returns {Promise<boolean>} True if the manual backup succeeded.
+             */
+            createManualBackup: async function(appId, options) {
+                const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [], manual: [] });
+                if (!manifest.manual) manifest.manual = []; // Upgrade path for older states
+
+                const now = Date.now();
+                const rawState = options.getStateFn();
+                if (!rawState) return false;
+
+                let payload = JSON.stringify(rawState);
+                let isCompressed = false;
+
+                if (options.useCompression) {
+                    try {
+                        await this._loadLZ();
+                        payload = window.LZString.compressToUTF16(payload);
+                        isCompressed = true;
+                    } catch (err) {
+                        MHCore.log(`[MHCore] Compression failed: ${err.message}`, null, 0);
+                    }
+                }
+
+                const backupId = `manual_${now}`;
+                const meta = { id: backupId, timestamp: now, type: 'manual', compressed: isCompressed, sizeBytes: payload.length };
+
+                try {
+                    localStorage.setItem(this._dataKey(appId, backupId), payload);
+                } catch (e) {
+                    MHCore.log(`[MHCore] Manual backup failed: Quota exceeded.`, null, 0);
+                    return false;
+                }
+
+                manifest.manual.unshift(meta);
+                MHCore.storage.set(this._manifestKey(appId), manifest);
+                MHCore.log(`[MHCore] Created manual backup: ${backupId}`, null, 1);
+                return true;
+            },
+
+            /**
+             * Permanently deletes a specific backup from local storage.
+             * @param {string} appId - App namespace
+             * @param {string} backupId - The precise backup ID
+             */
+            delete: function(appId, backupId) {
+                const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [], manual: [] });
+                const filterOut = (list) => list.filter(b => b.id !== backupId);
+                
+                manifest.hourly = filterOut(manifest.hourly || []);
+                manifest.daily = filterOut(manifest.daily || []);
+                manifest.manual = filterOut(manifest.manual || []);
+                
+                localStorage.removeItem(this._dataKey(appId, backupId));
+                MHCore.storage.set(this._manifestKey(appId), manifest);
+                MHCore.log(`[MHCore] Deleted backup: ${backupId}`, null, 1);
+            },
+
+            /**
              * Evaluates rotation schedules and executes the physical backup if needed.
              * @private
              */
             _performBackup: async function(appId, options) {
                 const manifest = MHCore.storage.get(this._manifestKey(appId), {
                     hourly: [], // 1 backup every 2 hours (Max 12)
-                    daily: []   // 1 backup every 24 hours (Max 7)
+                    daily: [],  // 1 backup every 24 hours (Max 7)
+                    manual: []  // Kept indefinitely until manually deleted
                 });
 
                 const now = Date.now();
@@ -836,9 +905,9 @@ let fbApp, fbAuth, fbFirestore;
                 let targetBucket = null;
 
                 // 1. Determine if a threshold has been crossed
-                if (manifest.daily.length === 0 || now - manifest.daily[0].timestamp >= oneDay) {
+                if (!manifest.daily || manifest.daily.length === 0 || now - manifest.daily[0].timestamp >= oneDay) {
                     targetBucket = 'daily';
-                } else if (manifest.hourly.length === 0 || now - manifest.hourly[0].timestamp >= twoHours) {
+                } else if (!manifest.hourly || manifest.hourly.length === 0 || now - manifest.hourly[0].timestamp >= twoHours) {
                     targetBucket = 'hourly';
                 }
 
@@ -877,10 +946,11 @@ let fbApp, fbAuth, fbFirestore;
                     MHCore.log(`[MHCore] Backup quota exceeded. Executing aggressive prune...`, null, 0);
                     
                     // We hit the 5MB wall. Delete the oldest daily, then oldest hourly, and try again.
-                    if (manifest.daily.length > 0) {
+                    // DO NOT PURGE MANUAL BACKUPS
+                    if (manifest.daily && manifest.daily.length > 0) {
                         const victim = manifest.daily.pop();
                         localStorage.removeItem(this._dataKey(appId, victim.id));
-                    } else if (manifest.hourly.length > 0) {
+                    } else if (manifest.hourly && manifest.hourly.length > 0) {
                         const victim = manifest.hourly.pop();
                         localStorage.removeItem(this._dataKey(appId, victim.id));
                     }
@@ -895,6 +965,7 @@ let fbApp, fbAuth, fbFirestore;
                 }
 
                 // 4. Update Manifest & Standard Rotation
+                if (!manifest[targetBucket]) manifest[targetBucket] = [];
                 manifest[targetBucket].unshift(meta);
 
                 if (manifest.hourly.length > 12) {
@@ -916,9 +987,9 @@ let fbApp, fbAuth, fbFirestore;
              * @returns {Array} Array of metadata objects sorted newest to oldest.
              */
             list: function(appId) {
-                const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [] });
+                const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [], manual: [] });
                 // Combine and sort descending by timestamp
-                return [...manifest.hourly, ...manifest.daily].sort((a, b) => b.timestamp - a.timestamp);
+                return [...(manifest.manual || []), ...(manifest.hourly || []), ...(manifest.daily || [])].sort((a, b) => b.timestamp - a.timestamp);
             },
 
             /**
@@ -936,8 +1007,8 @@ let fbApp, fbAuth, fbFirestore;
 
                 try {
                     // Check manifest to see if it needs decompression
-                    const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [] });
-                    const meta = [...manifest.hourly, ...manifest.daily].find(m => m.id === backupId);
+                    const manifest = MHCore.storage.get(this._manifestKey(appId), { hourly: [], daily: [], manual: [] });
+                    const meta = [...(manifest.manual || []), ...(manifest.hourly || []), ...(manifest.daily || [])].find(m => m.id === backupId);
                     
                     if (meta && meta.compressed) {
                         await this._loadLZ();
