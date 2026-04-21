@@ -11,20 +11,13 @@
  * 5. Config/Data Export: Universal JSON file export (Desktop, Native, Mobile Web).
  * 6. Config/Data Import: Universal JSON file ingestion via OS pickers.
  * 7. Safe Storage: Resilient localStorage wrapper (bypasses Incognito/Quota crashes).
- * 8. Time Machine/Backups: Automated and manual localStorage backups with LZ compression.
+ * 8. Backups: Automated and manual localStorage backups with LZ compression.
  * 9. Developer Logging: Internal console wrapper with a circular history buffer.
  * * ⚠️ CRITICAL DEPLOYMENT RULE ⚠️
  * Live production apps (Itch.io, Android APKs) MUST bundle and use a tested local 
  * copy of this file (e.g., `<script src="assets/js/matthodges-core.js"></script>`). 
  * ============================================================================
  */
-
-// CRITICAL ALIAS: Prevents `lucide-react` UMD bundles from crashing by forcing
-// them to resolve the lowercase `react` object to the standard `window.React` global.
-Object.defineProperty(window, 'react', {
-    get: () => window.React,
-    set: (val) => { window.React = val; }
-});
 
 // Firebase module references. 
 // Loaded dynamically in `sync.connect()` so offline apps don't waste bandwidth.
@@ -750,7 +743,7 @@ let fbApp, fbAuth, fbFirestore;
         },
 
         // ====================================================================
-        // 8. TIME MACHINE (Local Background Backups)
+        // 8. BACKUPS (Automated Local Snapshots)
         // ====================================================================
 
         backups: {
@@ -808,7 +801,7 @@ let fbApp, fbAuth, fbFirestore;
                     await this._performBackup(appId, options);
                 }, intervalMs);
 
-                MHCore.log(`[MHCore] Time Machine active for '${appId}' (Checking every ${options.intervalMinutes || 10}m)`, null, 1);
+                MHCore.log(`[MHCore] Backups active for '${appId}' (Checking every ${options.intervalMinutes || 10}m)`, null, 1);
                 
                 // Fire immediately on start just in case they've been offline/closed for a while
                 this._performBackup(appId, options); 
@@ -822,7 +815,7 @@ let fbApp, fbAuth, fbFirestore;
                 if (this._intervals[appId]) {
                     clearInterval(this._intervals[appId]);
                     delete this._intervals[appId];
-                    MHCore.log(`[MHCore] Time Machine stopped for '${appId}'.`, null, 1);
+                    MHCore.log(`[MHCore] Backups stopped for '${appId}'.`, null, 1);
                 }
             },
 
@@ -959,7 +952,7 @@ let fbApp, fbAuth, fbFirestore;
                         // Attempt physical save one last time
                         localStorage.setItem(this._dataKey(appId, backupId), payload);
                     } catch (fatalError) {
-                        MHCore.log(`[MHCore] Time Machine CRITICAL: Storage completely full. Backup aborted.`, null, 0);
+                        MHCore.log(`[MHCore] Backups CRITICAL: Storage completely full. Backup aborted.`, null, 0);
                         return;
                     }
                 }
