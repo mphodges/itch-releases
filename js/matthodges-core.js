@@ -33,7 +33,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.2.9",
+        LIB_VERSION: "1.3.1",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -139,6 +139,9 @@ let fbApp, fbAuth, fbFirestore;
                     user = auth.currentUser;
                     if (!user) throw new Error("Anonymous Auth Failed");
 
+                    // Set isConnected here so `this.push()` can authorize during the handshake
+                    isConnected = true; 
+
                     // THE HANDSHAKE
                     MHCore.log(`[MHCore] Fetching cloud vault state (${vaultId})...`, null, 2);
                     const docRef = fbFirestore.doc(db, 'artifacts', appId, 'public', 'data', 'vaults', vaultId);
@@ -189,7 +192,6 @@ let fbApp, fbAuth, fbFirestore;
                                         }
                                         this._setupListener(callbacks.onUpdate);
                                         this._setupNetworkListeners();
-                                        isConnected = true;
                                         resolve(true);
                                     }
                                 );
@@ -199,7 +201,6 @@ let fbApp, fbAuth, fbFirestore;
                                 this._markSynced(cloudData.lastUpdated);
                                 this._setupListener(callbacks.onUpdate);
                                 this._setupNetworkListeners();
-                                isConnected = true;
                                 resolve(true);
                             }
                         });
@@ -207,11 +208,16 @@ let fbApp, fbAuth, fbFirestore;
 
                     this._setupListener(callbacks.onUpdate);
                     this._setupNetworkListeners();
-                    isConnected = true;
                     MHCore.log("[MHCore] Handshake complete. Listening for changes.", null, 2);
                     return true;
 
                 } catch (err) {
+                    // Cleanup internal variables in case the handshake fails after auth
+                    isConnected = false; 
+                    user = null;
+                    activeVaultId = null;
+                    activeAppId = null;
+
                     MHCore.log(`[MHCore] Sync Connection Error: ${err.message}`, null, 0);
                     if (callbacks.onError) callbacks.onError(err);
                     return false;
@@ -778,7 +784,7 @@ let fbApp, fbAuth, fbFirestore;
                     await this._performBackup(appId, options);
                 }, intervalMs);
 
-                console.log(`[MHCore] Auto-backup engine started for '${appId}'. Heartbeat configured at ${options.intervalMinutes}m.`);
+                MHCore.log(`[MHCore] Auto-backup engine started for '${appId}'. Heartbeat configured at ${options.intervalMinutes || 10}m.`, null, 1);
                 this._performBackup(appId, options); 
             },
 
@@ -786,7 +792,7 @@ let fbApp, fbAuth, fbFirestore;
                 if (this._intervals[appId]) {
                     clearInterval(this._intervals[appId]);
                     delete this._intervals[appId];
-                    console.log(`[MHCore] Backups stopped for '${appId}'.`);
+                    MHCore.log(`[MHCore] Backups stopped for '${appId}'.`, null, 1);
                 }
             },
 
@@ -807,7 +813,7 @@ let fbApp, fbAuth, fbFirestore;
                         payload = window.LZString.compressToUTF16(payload);
                         isCompressed = true;
                     } catch (err) {
-                        console.error(`[MHCore] Compression failed: ${err.message}`);
+                        MHCore.log(`[MHCore] Compression failed: ${err.message}`, null, 0);
                     }
                 }
 
@@ -817,13 +823,13 @@ let fbApp, fbAuth, fbFirestore;
                 try {
                     localStorage.setItem(this._dataKey(appId, backupId), payload);
                 } catch (e) {
-                    console.error(`[MHCore] Manual backup failed: Quota exceeded.`);
+                    MHCore.log(`[MHCore] Manual backup failed: Quota exceeded.`, null, 0);
                     return false;
                 }
 
                 manifest.manual.unshift(meta);
                 MHCore.storage.set(this._manifestKey(appId), manifest);
-                console.log(`[MHCore] Created manual backup: ${backupId}`);
+                MHCore.log(`[MHCore] Created manual backup: ${backupId}`, null, 1);
                 return true;
             },
 
@@ -838,7 +844,7 @@ let fbApp, fbAuth, fbFirestore;
                 
                 localStorage.removeItem(this._dataKey(appId, backupId));
                 MHCore.storage.set(this._manifestKey(appId), manifest);
-                console.log(`[MHCore] Deleted backup: ${backupId}`);
+                MHCore.log(`[MHCore] Deleted backup: ${backupId}`, null, 1);
             },
 
             _performBackup: async function(appId, options) {
@@ -854,7 +860,7 @@ let fbApp, fbAuth, fbFirestore;
                 const currentDate = d.toDateString(); 
                 const current10MinBlock = Math.floor(d.getMinutes() / 10);
 
-                console.log(`[MHCore] Backup heartbeat received. Evaluating schedule payload...`);
+                MHCore.log(`[MHCore] Backup heartbeat received. Evaluating schedule payload...`, null, 2);
 
                 let needsRecent = false;
                 let needsHourly = false;
@@ -873,7 +879,7 @@ let fbApp, fbAuth, fbFirestore;
                         target.type = 'daily';
                         manifest.daily.unshift(target);
                         promotedHourlyToDaily = true;
-                        console.log(`[MHCore] Rollover executed: Promoted older hourly snapshot (${target.id}) to Daily tier.`);
+                        MHCore.log(`[MHCore] Rollover executed: Promoted older hourly snapshot (${target.id}) to Daily tier.`, null, 1);
                     } else {
                         needsDaily = true;
                     }
@@ -893,7 +899,7 @@ let fbApp, fbAuth, fbFirestore;
 
                 // Idle skip
                 if (!needsRecent && !needsHourly && !needsDaily) {
-                    console.log("[MHCore] Schedule satisfied. Skipping snapshot generation.");
+                    MHCore.log("[MHCore] Schedule satisfied. Skipping snapshot generation.", null, 2);
                     if (promotedHourlyToDaily) MHCore.storage.set(this._manifestKey(appId), manifest);
                     return;
                 }
@@ -901,7 +907,7 @@ let fbApp, fbAuth, fbFirestore;
                 // Generate Physical Payload
                 const rawState = options.getStateFn();
                 if (!rawState) {
-                    console.warn("[MHCore] App returned empty state, aborting save.");
+                    MHCore.log("[MHCore] App returned empty state, aborting save.", null, 0);
                     return;
                 }
 
@@ -913,7 +919,7 @@ let fbApp, fbAuth, fbFirestore;
                         payload = window.LZString.compressToUTF16(payload);
                         isCompressed = true;
                     } catch (err) {
-                        console.error(`[MHCore] Compression failed, falling back to raw JSON: ${err.message}`);
+                        MHCore.log(`[MHCore] Compression failed, falling back to raw JSON: ${err.message}`, null, 0);
                     }
                 }
 
@@ -925,9 +931,9 @@ let fbApp, fbAuth, fbFirestore;
                     try {
                         localStorage.setItem(this._dataKey(appId, backupId), payload);
                         manifest[type].unshift(meta);
-                        console.log(`[MHCore] Created new snapshot: [${type.toUpperCase()}] ${backupId}`);
+                        MHCore.log(`[MHCore] Created new snapshot: [${type.toUpperCase()}] ${backupId}`, null, 1);
                     } catch (e) {
-                        console.error(`[MHCore] Quota exceeded. Failed to save ${type} snapshot.`);
+                        MHCore.log(`[MHCore] Quota exceeded. Failed to save ${type} snapshot.`, null, 0);
                     }
                 };
 
@@ -940,7 +946,7 @@ let fbApp, fbAuth, fbFirestore;
                     while (manifest[type].length > limit) {
                         const victim = manifest[type].pop();
                         localStorage.removeItem(this._dataKey(appId, victim.id));
-                        console.log(`[MHCore] Pruned aged-out snapshot: [${type.toUpperCase()}] ${victim.id}`);
+                        MHCore.log(`[MHCore] Pruned aged-out snapshot: [${type.toUpperCase()}] ${victim.id}`, null, 1);
                     }
                 };
 
@@ -960,7 +966,7 @@ let fbApp, fbAuth, fbFirestore;
             get: async function(appId, backupId) {
                 const payload = localStorage.getItem(this._dataKey(appId, backupId));
                 if (!payload) {
-                    console.error(`[MHCore] Backup missing from disk: ${backupId}`);
+                    MHCore.log(`[MHCore] Backup missing from disk: ${backupId}`, null, 0);
                     return null;
                 }
                 try {
@@ -974,7 +980,7 @@ let fbApp, fbAuth, fbFirestore;
                     }
                     return JSON.parse(payload);
                 } catch (err) {
-                    console.error(`[MHCore] Failed to parse/decompress backup: ${err.message}`);
+                    MHCore.log(`[MHCore] Failed to parse/decompress backup: ${err.message}`, null, 0);
                     return null;
                 }
             }
