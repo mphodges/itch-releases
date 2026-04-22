@@ -28,12 +28,12 @@ let fbApp, fbAuth, fbFirestore;
     if (window.MHCore) return;
 
     // --- Internal Sync State Variables ---
-    let db, auth, user, activeVaultId, activeAppId, unsubscribeSnapshot;
+    let db, auth, user, activeVaultId, activeAppId, unsubscribeSnapshot, _onError;
     let isConnected = false;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.3.1",
+        LIB_VERSION: "1.3.3",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -89,6 +89,7 @@ let fbApp, fbAuth, fbFirestore;
              */
             connect: async function(configStr, appId, vaultId, localData, callbacks = {}) {
                 callbacks = callbacks || {};
+                _onError = callbacks.onError;
 
                 if (!configStr || !vaultId || !appId) {
                     MHCore.log("[MHCore] Sync aborted: Missing config, appId, or vaultId.", null, 0);
@@ -184,7 +185,7 @@ let fbApp, fbAuth, fbFirestore;
                                     async (decision) => {
                                         if (decision === 'local') {
                                             MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 1);
-                                            await this.push(localData || {});
+                                            await this.push(localData || {}, true);
                                         } else if (decision === 'cloud') {
                                             MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
                                             if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
@@ -227,9 +228,10 @@ let fbApp, fbAuth, fbFirestore;
             /**
              * Pushes the current application state to the active Cloud Vault.
              * @param {object} payload - The complete JSON state of the application.
+             * @param {boolean} forceOverwrite - Optional flag to bypass timestamp safety blocks.
              * @returns {Promise<boolean>} True if the push was successful.
              */
-            push: async function(payload) {
+            push: async function(payload, forceOverwrite = false) {
                 if (!isConnected || !user || !activeVaultId || !activeAppId) return false;
                 
                 try {
@@ -255,10 +257,10 @@ let fbApp, fbAuth, fbFirestore;
                     // If we made it here, we hit the live server. Check for remote changes we missed.
                     if (cloudSnap.exists()) {
                         const cloudData = cloudSnap.data();
-                        if (cloudData.lastUpdated > memLastSynced) {
+                        if (cloudData.lastUpdated > memLastSynced && !forceOverwrite) {
                             MHCore.log(`[MHCore] Push blocked! Cloud has newer data (${cloudData.lastUpdated} > ${memLastSynced}).`, null, 0);
                             this.disconnect();
-                            alert("Sync Disconnected: The cloud was updated by another device while your connection was idle. Please reconnect to safely merge your changes.");
+                            if (_onError) _onError(new Error("PUSH_BLOCKED_STALE_STATE"));
                             return false;
                         }
                     }
@@ -282,6 +284,7 @@ let fbApp, fbAuth, fbFirestore;
                     return true;
                 } catch (err) {
                     MHCore.log(`[MHCore] Sync Push Error: ${err.message}`, null, 0);
+                    if (err.message === "PUSH_BLOCKED_STALE_STATE") throw err;
                     return false;
                 }
             },
@@ -784,7 +787,7 @@ let fbApp, fbAuth, fbFirestore;
                     await this._performBackup(appId, options);
                 }, intervalMs);
 
-                MHCore.log(`[MHCore] Auto-backup engine started for '${appId}'. Heartbeat configured at ${options.intervalMinutes || 10}m.`, null, 1);
+                MHCore.log(`[MHCore] Auto-backup engine started for '${appId}'. Heartbeat configured at ${options.intervalMinutes}m.`, null, 1);
                 this._performBackup(appId, options); 
             },
 
