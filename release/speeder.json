@@ -1,5 +1,5 @@
 {
-  "version": "0.9.97",
+  "version": "0.9.121",
   "url": "https://matthodges.itch.io/speeder",
   "bundle_rules": {
     "include": [
@@ -7,5 +7,5 @@
       "assets/"
     ]
   },
-  "notes": "Prepared for 0.9.97 release."
+  "notes": "Prepared for 0.9.121 release."
 }
