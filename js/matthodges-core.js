@@ -33,7 +33,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.3.3",
+        LIB_VERSION: "1.3.4",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
         
         // ====================================================================
@@ -868,94 +868,102 @@ let fbApp, fbAuth, fbFirestore;
                 let needsRecent = false;
                 let needsHourly = false;
                 let needsDaily = false;
-                let promotedHourlyToDaily = false;
 
-                // Tier 3: Daily Evaluation
+                // 1. Evaluate Generation Requirements
                 const lastDaily = manifest.daily[0];
-                if (!lastDaily || new Date(lastDaily.timestamp).toDateString() !== currentDate) {
-                    const yesterdayStr = new Date(now - 86400000).toDateString();
-                    const yesterdayHourlies = manifest.hourly.filter(b => new Date(b.timestamp).toDateString() === yesterdayStr);
-                    
-                    if (yesterdayHourlies.length > 0) {
-                        const target = yesterdayHourlies.pop(); 
-                        manifest.hourly = manifest.hourly.filter(b => b.id !== target.id); 
-                        target.type = 'daily';
-                        manifest.daily.unshift(target);
-                        promotedHourlyToDaily = true;
-                        MHCore.log(`[MHCore] Rollover executed: Promoted older hourly snapshot (${target.id}) to Daily tier.`, null, 1);
-                    } else {
-                        needsDaily = true;
-                    }
-                }
+                if (!lastDaily || new Date(lastDaily.timestamp).toDateString() !== currentDate) needsDaily = true;
 
-                // Tier 2: Hourly Evaluation
                 const lastHourly = manifest.hourly[0];
-                if (!lastHourly || new Date(lastHourly.timestamp).getHours() !== currentHour || new Date(lastHourly.timestamp).toDateString() !== currentDate) {
-                    needsHourly = true;
-                }
+                if (!lastHourly || new Date(lastHourly.timestamp).getHours() !== currentHour || new Date(lastHourly.timestamp).toDateString() !== currentDate) needsHourly = true;
 
-                // Tier 1: Recent Evaluation
                 const lastRecent = manifest.recent[0];
-                if (!lastRecent || Math.floor(new Date(lastRecent.timestamp).getMinutes() / 10) !== current10MinBlock || new Date(lastRecent.timestamp).getHours() !== currentHour) {
-                    needsRecent = true;
-                }
+                if (!lastRecent || Math.floor(new Date(lastRecent.timestamp).getMinutes() / 10) !== current10MinBlock || new Date(lastRecent.timestamp).getHours() !== currentHour) needsRecent = true;
 
-                // Idle skip
-                if (!needsRecent && !needsHourly && !needsDaily) {
+                // 2. Generate Physical Payload
+                if (needsRecent || needsHourly || needsDaily) {
+                    const rawState = options.getStateFn();
+                    if (!rawState) {
+                        MHCore.log("[MHCore] App returned empty state, aborting save.", null, 0);
+                        return;
+                    }
+
+                    let payload = JSON.stringify(rawState);
+                    let isCompressed = false;
+                    if (options.useCompression) {
+                        try {
+                            await this._loadLZ();
+                            payload = window.LZString.compressToUTF16(payload);
+                            isCompressed = true;
+                        } catch (err) {
+                            MHCore.log(`[MHCore] Compression failed, falling back to raw JSON: ${err.message}`, null, 0);
+                        }
+                    }
+
+                    const sizeBytes = payload.length;
+
+                    const saveSnapshot = (type) => {
+                        const backupId = `${type}_${now}`;
+                        const meta = { id: backupId, timestamp: now, type, compressed: isCompressed, sizeBytes };
+                        try {
+                            localStorage.setItem(this._dataKey(appId, backupId), payload);
+                            manifest[type].unshift(meta);
+                            MHCore.log(`[MHCore] Created new snapshot: [${type.toUpperCase()}] ${backupId}`, null, 1);
+                        } catch (e) {
+                            MHCore.log(`[MHCore] Quota exceeded. Failed to save ${type} snapshot.`, null, 0);
+                        }
+                    };
+
+                    if (needsDaily) saveSnapshot('daily');
+                    if (needsHourly) saveSnapshot('hourly');
+                    if (needsRecent) saveSnapshot('recent');
+                } else {
                     MHCore.log("[MHCore] Schedule satisfied. Skipping snapshot generation.", null, 2);
-                    if (promotedHourlyToDaily) MHCore.storage.set(this._manifestKey(appId), manifest);
-                    return;
                 }
 
-                // Generate Physical Payload
-                const rawState = options.getStateFn();
-                if (!rawState) {
-                    MHCore.log("[MHCore] App returned empty state, aborting save.", null, 0);
-                    return;
-                }
+                // 3. Dynamic GC & Tier Promotion Sweep (The Time Machine)
+                const hr1 = 60 * 60 * 1000;
+                const day1 = 24 * hr1;
+                const day7 = 7 * day1;
 
-                let payload = JSON.stringify(rawState);
-                let isCompressed = false;
-                if (options.useCompression) {
-                    try {
-                        await this._loadLZ();
-                        payload = window.LZString.compressToUTF16(payload);
-                        isCompressed = true;
-                    } catch (err) {
-                        MHCore.log(`[MHCore] Compression failed, falling back to raw JSON: ${err.message}`, null, 0);
+                // Flatten, sort, and re-bucket based strictly on age
+                const allAutomated = [...manifest.recent, ...manifest.hourly, ...manifest.daily].sort((a, b) => b.timestamp - a.timestamp);
+                
+                manifest.recent = [];
+                manifest.hourly = [];
+                manifest.daily = [];
+
+                for (const b of allAutomated) {
+                    const age = now - b.timestamp;
+                    let kept = false;
+
+                    if (age <= hr1 && manifest.recent.length < schedule.recent) {
+                        b.type = 'recent';
+                        manifest.recent.push(b);
+                        kept = true;
+                    } else if (age <= day1 && manifest.hourly.length < schedule.hourly) {
+                        // Keep one per hour block dynamically
+                        const bHour = new Date(b.timestamp).getHours();
+                        const bDate = new Date(b.timestamp).toDateString();
+                        if (!manifest.hourly.some(h => new Date(h.timestamp).getHours() === bHour && new Date(h.timestamp).toDateString() === bDate)) {
+                            b.type = 'hourly';
+                            manifest.hourly.push(b);
+                            kept = true;
+                        }
+                    } else if (age <= day7 && manifest.daily.length < schedule.daily) {
+                        // Keep one per day block dynamically
+                        const bDate = new Date(b.timestamp).toDateString();
+                        if (!manifest.daily.some(d => new Date(d.timestamp).toDateString() === bDate)) {
+                            b.type = 'daily';
+                            manifest.daily.push(b);
+                            kept = true;
+                        }
+                    }
+
+                    if (!kept) {
+                        localStorage.removeItem(this._dataKey(appId, b.id));
+                        MHCore.log(`[MHCore] GC Sweep: Pruned expired or excess snapshot ${b.id}`, null, 2);
                     }
                 }
-
-                const sizeBytes = payload.length;
-
-                const saveSnapshot = (type) => {
-                    const backupId = `${type}_${now}`;
-                    const meta = { id: backupId, timestamp: now, type, compressed: isCompressed, sizeBytes };
-                    try {
-                        localStorage.setItem(this._dataKey(appId, backupId), payload);
-                        manifest[type].unshift(meta);
-                        MHCore.log(`[MHCore] Created new snapshot: [${type.toUpperCase()}] ${backupId}`, null, 1);
-                    } catch (e) {
-                        MHCore.log(`[MHCore] Quota exceeded. Failed to save ${type} snapshot.`, null, 0);
-                    }
-                };
-
-                if (needsDaily) saveSnapshot('daily');
-                if (needsHourly) saveSnapshot('hourly');
-                if (needsRecent) saveSnapshot('recent');
-
-                // Evaluate Pruning Restrictions
-                const prune = (type, limit) => {
-                    while (manifest[type].length > limit) {
-                        const victim = manifest[type].pop();
-                        localStorage.removeItem(this._dataKey(appId, victim.id));
-                        MHCore.log(`[MHCore] Pruned aged-out snapshot: [${type.toUpperCase()}] ${victim.id}`, null, 1);
-                    }
-                };
-
-                prune('recent', schedule.recent);
-                prune('hourly', schedule.hourly);
-                prune('daily', schedule.daily);
 
                 MHCore.storage.set(this._manifestKey(appId), manifest);
             },
