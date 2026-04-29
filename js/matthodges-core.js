@@ -33,9 +33,19 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.3.4",
-        verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics
+        LIB_VERSION: "1.3.5",
+        verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics, 3 = Deep Debug
         
+        // --- SHARED UTILS ---
+        /**
+         * Standardized ISO-like format: YYYY-MM-dd HH:mm:ss
+         */
+        formatDateTime: function(ts) {
+            const d = new Date(ts || Date.now());
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        },
+
         // ====================================================================
         // 1. ENVIRONMENT DETECTION
         // ====================================================================
@@ -119,14 +129,14 @@ let fbApp, fbAuth, fbFirestore;
 
                 try {
                     if (!fbApp) {
-                        MHCore.log("[MHCore] Downloading Firebase SDKs...", null, 1);
+                        MHCore.log("[MHCore] Downloading Firebase SDKs...", null, 2);
                         const [appMod, authMod, fsMod] = await Promise.all([
                             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js'),
                             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js'),
                             import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js')
                         ]);
                         fbApp = appMod; fbAuth = authMod; fbFirestore = fsMod;
-                        MHCore.log("[MHCore] Firebase SDKs loaded successfully.", null, 2);
+                        MHCore.log("[MHCore] Firebase SDKs loaded successfully.", null, 3);
                     }
 
                     const app = fbApp.getApps().length === 0 ? fbApp.initializeApp(firebaseConfig) : fbApp.getApp();
@@ -135,7 +145,7 @@ let fbApp, fbAuth, fbFirestore;
                     activeVaultId = vaultId;
                     activeAppId = appId;
 
-                    MHCore.log("[MHCore] Authenticating with Firebase...", null, 2);
+                    MHCore.log("[MHCore] Authenticating with Firebase...", null, 3);
                     await fbAuth.signInAnonymously(auth);
                     user = auth.currentUser;
                     if (!user) throw new Error("Anonymous Auth Failed");
@@ -144,7 +154,7 @@ let fbApp, fbAuth, fbFirestore;
                     isConnected = true; 
 
                     // THE HANDSHAKE
-                    MHCore.log(`[MHCore] Fetching cloud vault state (${vaultId})...`, null, 2);
+                    MHCore.log(`[MHCore] Fetching cloud vault state (${vaultId})...`, null, 3);
                     const docRef = fbFirestore.doc(db, 'artifacts', appId, 'public', 'data', 'vaults', vaultId);
                     const cloudSnap = await fbFirestore.getDoc(docRef);
                     const cloudData = cloudSnap.exists() ? cloudSnap.data() : null;
@@ -155,23 +165,23 @@ let fbApp, fbAuth, fbFirestore;
 
                     if (!cloudData) {
                         // Scenario A: Cloud is empty. Push local data immediately.
-                        MHCore.log(`[MHCore] Cloud vault empty. Claiming with local data (TS: ${Date.now()}).`, null, 1);
+                        MHCore.log(`[MHCore] Cloud vault empty. Claiming with local data (TS: ${Date.now()}).`, null, 2);
                         await this.push(localData || {});
                         
                     } else if (!localData || Object.keys(localData).length === 0) {
                         // Scenario B: Local is empty. Pull cloud data silently.
-                        MHCore.log(`[MHCore] Local empty. Pulling from cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
+                        MHCore.log(`[MHCore] Local empty. Pulling from cloud (TS: ${cloudData.lastUpdated}).`, null, 2);
                         if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
                         this._markSynced(cloudData.lastUpdated);
                         
                     } else if (memLastSynced) {
                         // Scenario C: Both have data, device is known and trusted.
                         if (cloudData.lastUpdated > memLastSynced) {
-                            MHCore.log(`[MHCore] Cloud is newer (Cloud: ${cloudData.lastUpdated} > Local: ${memLastSynced}). Pulling.`, null, 1);
+                            MHCore.log(`[MHCore] Cloud is newer (Cloud: ${cloudData.lastUpdated} > Local: ${memLastSynced}). Pulling.`, null, 2);
                             if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
                             this._markSynced(cloudData.lastUpdated);
                         } else {
-                            MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${memLastSynced}). Ready to push.`, null, 2);
+                            MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${memLastSynced}). Ready to push.`, null, 3);
                         }
                         
                     } else {
@@ -184,10 +194,10 @@ let fbApp, fbAuth, fbFirestore;
                                     cloudData.lastUpdated, 
                                     async (decision) => {
                                         if (decision === 'local') {
-                                            MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 1);
+                                            MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 2);
                                             await this.push(localData || {}, true);
                                         } else if (decision === 'cloud') {
-                                            MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 1);
+                                            MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 2);
                                             if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
                                             this._markSynced(cloudData.lastUpdated);
                                         }
@@ -197,7 +207,7 @@ let fbApp, fbAuth, fbFirestore;
                                     }
                                 );
                             } else {
-                                MHCore.log("[MHCore] Conflict bypassed (no handler). Assuming Cloud override.", null, 1);
+                                MHCore.log("[MHCore] Conflict bypassed (no handler). Assuming Cloud override.", null, 2);
                                 if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
                                 this._markSynced(cloudData.lastUpdated);
                                 this._setupListener(callbacks.onUpdate);
@@ -209,7 +219,7 @@ let fbApp, fbAuth, fbFirestore;
 
                     this._setupListener(callbacks.onUpdate);
                     this._setupNetworkListeners();
-                    MHCore.log("[MHCore] Handshake complete. Listening for changes.", null, 2);
+                    MHCore.log("[MHCore] Handshake complete. Listening for changes.", null, 3);
                     return true;
 
                 } catch (err) {
@@ -272,7 +282,7 @@ let fbApp, fbAuth, fbFirestore;
                     // Stamp locally FIRST to prevent Firestore's local cache from triggering an echo loop
                     this._markSynced(pushTime);
 
-                    MHCore.log(`[MHCore] Initiating push to Firestore (TS: ${pushTime})...`, null, 2);
+                    MHCore.log(`[MHCore] Initiating push to Firestore (TS: ${pushTime})...`, null, 3);
 
                     await fbFirestore.setDoc(docRef, {
                         payload: payload,
@@ -280,7 +290,7 @@ let fbApp, fbAuth, fbFirestore;
                         device: navigator.userAgent
                     }, { merge: true }); 
                     
-                    MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId} (TS: ${pushTime})`, null, 1);
+                    MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId} (TS: ${pushTime})`, null, 2);
                     return true;
                 } catch (err) {
                     MHCore.log(`[MHCore] Sync Push Error: ${err.message}`, null, 0);
@@ -312,7 +322,7 @@ let fbApp, fbAuth, fbFirestore;
                 activeVaultId = null;
                 activeAppId = null;
                 memLastSynced = 0; // Wipe RAM state
-                MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.", null, 1);
+                MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.", null, 2);
             },
 
             /**
@@ -339,15 +349,15 @@ let fbApp, fbAuth, fbFirestore;
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         
-                        MHCore.log(`[MHCore] Snapshot Fired. Cloud: ${data.lastUpdated} | RAM: ${memLastSynced}`, null, 2);
+                        MHCore.log(`[MHCore] Snapshot Fired. Cloud: ${data.lastUpdated} | RAM: ${memLastSynced}`, null, 3);
 
                         // Use isolated RAM state, NOT localStorage, to prevent multi-tab crosstalk.
                         if (data.lastUpdated > memLastSynced) {
-                            MHCore.log(`[MHCore] Remote update received (TS: ${data.lastUpdated}).`, null, 1);
+                            MHCore.log(`[MHCore] Remote update received (TS: ${data.lastUpdated}).`, null, 2);
                             this._markSynced(data.lastUpdated);
                             if (onUpdateCallback) onUpdateCallback(data.payload);
                         } else {
-                            MHCore.log(`[MHCore] Remote update ignored (Cloud ${data.lastUpdated} <= RAM ${memLastSynced}).`, null, 2);
+                            MHCore.log(`[MHCore] Remote update ignored (Cloud ${data.lastUpdated} <= RAM ${memLastSynced}).`, null, 3);
                         }
                     }
                 }, (err) => {
@@ -787,7 +797,7 @@ let fbApp, fbAuth, fbFirestore;
                     await this._performBackup(appId, options);
                 }, intervalMs);
 
-                MHCore.log(`[MHCore] Auto-backup engine started for '${appId}'. Heartbeat configured at ${options.intervalMinutes}m.`, null, 1);
+                MHCore.log(`[MHCore] Auto-backup engine started for '${appId}'. Heartbeat configured at ${options.intervalMinutes}m.`, null, 2);
                 this._performBackup(appId, options); 
             },
 
@@ -795,7 +805,7 @@ let fbApp, fbAuth, fbFirestore;
                 if (this._intervals[appId]) {
                     clearInterval(this._intervals[appId]);
                     delete this._intervals[appId];
-                    MHCore.log(`[MHCore] Backups stopped for '${appId}'.`, null, 1);
+                    MHCore.log(`[MHCore] Backups stopped for '${appId}'.`, null, 2);
                 }
             },
 
@@ -832,7 +842,7 @@ let fbApp, fbAuth, fbFirestore;
 
                 manifest.manual.unshift(meta);
                 MHCore.storage.set(this._manifestKey(appId), manifest);
-                MHCore.log(`[MHCore] Created manual backup: ${backupId}`, null, 1);
+                MHCore.log(`[MHCore] Created manual backup: ${backupId}`, null, 2);
                 return true;
             },
 
@@ -847,7 +857,7 @@ let fbApp, fbAuth, fbFirestore;
                 
                 localStorage.removeItem(this._dataKey(appId, backupId));
                 MHCore.storage.set(this._manifestKey(appId), manifest);
-                MHCore.log(`[MHCore] Deleted backup: ${backupId}`, null, 1);
+                MHCore.log(`[MHCore] Deleted backup: ${backupId}`, null, 2);
             },
 
             _performBackup: async function(appId, options) {
@@ -863,7 +873,7 @@ let fbApp, fbAuth, fbFirestore;
                 const currentDate = d.toDateString(); 
                 const current10MinBlock = Math.floor(d.getMinutes() / 10);
 
-                MHCore.log(`[MHCore] Backup heartbeat received. Evaluating schedule payload...`, null, 2);
+                MHCore.log(`[MHCore] Backup heartbeat received. Evaluating schedule payload...`, null, 3);
 
                 let needsRecent = false;
                 let needsHourly = false;
@@ -907,7 +917,7 @@ let fbApp, fbAuth, fbFirestore;
                         try {
                             localStorage.setItem(this._dataKey(appId, backupId), payload);
                             manifest[type].unshift(meta);
-                            MHCore.log(`[MHCore] Created new snapshot: [${type.toUpperCase()}] ${backupId}`, null, 1);
+                            MHCore.log(`[MHCore] Created new snapshot: [${type.toUpperCase()}] ${backupId}`, null, 2);
                         } catch (e) {
                             MHCore.log(`[MHCore] Quota exceeded. Failed to save ${type} snapshot.`, null, 0);
                         }
@@ -917,7 +927,7 @@ let fbApp, fbAuth, fbFirestore;
                     if (needsHourly) saveSnapshot('hourly');
                     if (needsRecent) saveSnapshot('recent');
                 } else {
-                    MHCore.log("[MHCore] Schedule satisfied. Skipping snapshot generation.", null, 2);
+                    MHCore.log("[MHCore] Schedule satisfied. Skipping snapshot generation.", null, 3);
                 }
 
                 // 3. Dynamic GC & Tier Promotion Sweep (The Time Machine)
@@ -936,26 +946,33 @@ let fbApp, fbAuth, fbFirestore;
                     const age = now - b.timestamp;
                     let kept = false;
 
-                    if (age <= hr1 && manifest.recent.length < schedule.recent) {
-                        b.type = 'recent';
-                        manifest.recent.push(b);
-                        kept = true;
-                    } else if (age <= day1 && manifest.hourly.length < schedule.hourly) {
-                        // Keep one per hour block dynamically
-                        const bHour = new Date(b.timestamp).getHours();
-                        const bDate = new Date(b.timestamp).toDateString();
-                        if (!manifest.hourly.some(h => new Date(h.timestamp).getHours() === bHour && new Date(h.timestamp).toDateString() === bDate)) {
-                            b.type = 'hourly';
-                            manifest.hourly.push(b);
+                    // STRICT NESTING: Age brackets must trap the payload before checking capacity
+                    if (age <= hr1) {
+                        if (manifest.recent.length < schedule.recent) {
+                            b.type = 'recent';
+                            manifest.recent.push(b);
                             kept = true;
                         }
-                    } else if (age <= day7 && manifest.daily.length < schedule.daily) {
-                        // Keep one per day block dynamically
-                        const bDate = new Date(b.timestamp).toDateString();
-                        if (!manifest.daily.some(d => new Date(d.timestamp).toDateString() === bDate)) {
-                            b.type = 'daily';
-                            manifest.daily.push(b);
-                            kept = true;
+                    } else if (age <= day1) {
+                        if (manifest.hourly.length < schedule.hourly) {
+                            // Keep one per hour block dynamically
+                            const bHour = new Date(b.timestamp).getHours();
+                            const bDate = new Date(b.timestamp).toDateString();
+                            if (!manifest.hourly.some(h => new Date(h.timestamp).getHours() === bHour && new Date(h.timestamp).toDateString() === bDate)) {
+                                b.type = 'hourly';
+                                manifest.hourly.push(b);
+                                kept = true;
+                            }
+                        }
+                    } else if (age <= day7) {
+                        if (manifest.daily.length < schedule.daily) {
+                            // Keep one per day block dynamically
+                            const bDate = new Date(b.timestamp).toDateString();
+                            if (!manifest.daily.some(d => new Date(d.timestamp).toDateString() === bDate)) {
+                                b.type = 'daily';
+                                manifest.daily.push(b);
+                                kept = true;
+                            }
                         }
                     }
 
@@ -1012,7 +1029,7 @@ let fbApp, fbAuth, fbFirestore;
         log: function(msg, data = null, level = 1) {
             if (level > this.verbosity) return;
 
-            const timestamp = new Date().toLocaleTimeString();
+            const timestamp = this.formatDateTime ? this.formatDateTime() : new Date().toLocaleTimeString();
             const logEntry = `[${timestamp}] ${msg}`;
             this._logs.push(logEntry);
             
