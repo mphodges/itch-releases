@@ -1,7 +1,7 @@
 {
   "version": "3.3",
   "inject_files": [
-    "data/jelly-merge-themes.json"
+    "assets/data/jelly-merge-themes.json"
   ],
   "bundle_rules": {
     "include": [
