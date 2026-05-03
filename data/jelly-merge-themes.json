@@ -1,228 +1,1555 @@
 {
   "jelly": {
-    "id": "jelly", "title": "JELLY\nMERGE", "type": "procedural", "drawStyle": "jelly", "squish": true,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#FFFBEB", "bgEffect": "nibs", "chaosName": "SUGAR RUSH", "textMain": "#1E293B", "textAccent": "#DB2777", "textLabel": "#D97706", "jarBorder": "#DB2777", "chaosFill": "#FEE2E2", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#FCD34D" },
+    "id": "jelly",
+    "title": "JELLY\nMERGE",
+    "type": "procedural",
+    "drawStyle": "jelly",
+    "squish": true,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#FFFBEB",
+      "bgEffect": "nibs",
+      "chaosName": "SUGAR RUSH",
+      "textMain": "#1E293B",
+      "textAccent": "#DB2777",
+      "textLabel": "#D97706",
+      "jarBorder": "#DB2777",
+      "chaosFill": "#FEE2E2",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#FCD34D"
+    },
     "modes": {
-      "easy":   { "name": "Fun Size",    "bg": "#4ADE80", "border": "#16A34A", "text": "#064E3B" },
-      "medium": { "name": "Share Pack",  "bg": "#FACC15", "border": "#CA8A04", "text": "#713F12" },
-      "pro":    { "name": "Family Pack", "bg": "#F472B6", "border": "#DB2777", "text": "#831843" }
+      "easy": {
+        "name": "Fun Size",
+        "bg": "#4ADE80",
+        "border": "#16A34A",
+        "text": "#064E3B"
+      },
+      "medium": {
+        "name": "Share Pack",
+        "bg": "#FACC15",
+        "border": "#CA8A04",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Family Pack",
+        "bg": "#F472B6",
+        "border": "#DB2777",
+        "text": "#831843"
+      }
     },
     "items": [
-      { "label": "Cherry Pip",    "color": "#FF3333", "stroke": "#990000" }, { "label": "Orange Tang",   "color": "#FF8800", "stroke": "#CC5500" }, 
-      { "label": "Lemon Drop",    "color": "#FFDD00", "stroke": "#B79900" }, { "label": "Lime Squish",   "color": "#33CC33", "stroke": "#006600" }, 
-      { "label": "Blue Razz",     "color": "#3399FF", "stroke": "#004488" }, { "label": "Grape Blob",    "color": "#5555FF", "stroke": "#111199" }, 
-      { "label": "Berry Chonk",   "color": "#AA33AA", "stroke": "#550055" }, { "label": "Bronze Bonbon", "color": "#CD7F32", "stroke": "#8B4513" }, 
-      { "label": "Silver Swirl",  "color": "#C0C0C0", "stroke": "#666666" }, { "label": "Golden Gummy",  "color": "#FFD700", "stroke": "#B8860B" }, 
-      { "label": "Crystal Crown", "color": "#EEFFFF", "stroke": "#546E7A" }
+      {
+        "label": "Cherry Pip",
+        "color": "#FF3333",
+        "stroke": "#990000"
+      },
+      {
+        "label": "Orange Tang",
+        "color": "#FF8800",
+        "stroke": "#CC5500"
+      },
+      {
+        "label": "Lemon Drop",
+        "color": "#FFDD00",
+        "stroke": "#B79900"
+      },
+      {
+        "label": "Lime Squish",
+        "color": "#33CC33",
+        "stroke": "#006600"
+      },
+      {
+        "label": "Blue Razz",
+        "color": "#3399FF",
+        "stroke": "#004488"
+      },
+      {
+        "label": "Grape Blob",
+        "color": "#5555FF",
+        "stroke": "#111199"
+      },
+      {
+        "label": "Berry Chonk",
+        "color": "#AA33AA",
+        "stroke": "#550055"
+      },
+      {
+        "label": "Bronze Bonbon",
+        "color": "#CD7F32",
+        "stroke": "#8B4513"
+      },
+      {
+        "label": "Silver Swirl",
+        "color": "#C0C0C0",
+        "stroke": "#666666"
+      },
+      {
+        "label": "Golden Gummy",
+        "color": "#FFD700",
+        "stroke": "#B8860B"
+      },
+      {
+        "label": "Crystal Crown",
+        "color": "#EEFFFF",
+        "stroke": "#546E7A"
+      }
     ]
   },
   "jelly_cubes": {
-    "id": "jelly_cubes", "title": "JELLY\nCUBES", "type": "procedural", "drawStyle": "jelly", "squish": true, "shape": "rounded_rect",
-    "ui": { "pageBg": "#000000", "wrapperBg": "#FFFBEB", "bgEffect": "nibs", "chaosName": "SUGAR RUSH", "textMain": "#1E293B", "textAccent": "#DB2777", "textLabel": "#D97706", "jarBorder": "#DB2777", "chaosFill": "#FEE2E2", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#FCD34D" },
+    "id": "jelly_cubes",
+    "title": "JELLY\nCUBES",
+    "type": "procedural",
+    "drawStyle": "jelly",
+    "squish": true,
+    "shape": "rounded_rect",
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#FFFBEB",
+      "bgEffect": "nibs",
+      "chaosName": "SUGAR RUSH",
+      "textMain": "#1E293B",
+      "textAccent": "#DB2777",
+      "textLabel": "#D97706",
+      "jarBorder": "#DB2777",
+      "chaosFill": "#FEE2E2",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#FCD34D"
+    },
     "modes": {
-      "easy":   { "name": "Fun Size",    "bg": "#4ADE80", "border": "#16A34A", "text": "#064E3B" },
-      "medium": { "name": "Share Pack",  "bg": "#FACC15", "border": "#CA8A04", "text": "#713F12" },
-      "pro":    { "name": "Family Pack", "bg": "#F472B6", "border": "#DB2777", "text": "#831843" }
+      "easy": {
+        "name": "Fun Size",
+        "bg": "#4ADE80",
+        "border": "#16A34A",
+        "text": "#064E3B"
+      },
+      "medium": {
+        "name": "Share Pack",
+        "bg": "#FACC15",
+        "border": "#CA8A04",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Family Pack",
+        "bg": "#F472B6",
+        "border": "#DB2777",
+        "text": "#831843"
+      }
     },
     "items": [
-      { "label": "Cherry Cube",    "color": "#FF3333", "stroke": "#990000" }, { "label": "Orange Block",   "color": "#FF8800", "stroke": "#CC5500" }, 
-      { "label": "Lemon Brick",    "color": "#FFDD00", "stroke": "#B79900" }, { "label": "Lime Square",    "color": "#33CC33", "stroke": "#006600" }, 
-      { "label": "Blue Box",       "color": "#3399FF", "stroke": "#004488" }, { "label": "Grape Chunk",    "color": "#5555FF", "stroke": "#111199" }, 
-      { "label": "Berry Crate",    "color": "#AA33AA", "stroke": "#550055" }, { "label": "Bronze Safe",    "color": "#CD7F32", "stroke": "#8B4513" }, 
-      { "label": "Silver Vault",   "color": "#C0C0C0", "stroke": "#666666" }, { "label": "Golden Chest",   "color": "#FFD700", "stroke": "#B8860B" }, 
-      { "label": "Crystal Cube",   "color": "#EEFFFF", "stroke": "#546E7A" }
+      {
+        "label": "Cherry Cube",
+        "color": "#FF3333",
+        "stroke": "#990000"
+      },
+      {
+        "label": "Orange Block",
+        "color": "#FF8800",
+        "stroke": "#CC5500"
+      },
+      {
+        "label": "Lemon Brick",
+        "color": "#FFDD00",
+        "stroke": "#B79900"
+      },
+      {
+        "label": "Lime Square",
+        "color": "#33CC33",
+        "stroke": "#006600"
+      },
+      {
+        "label": "Blue Box",
+        "color": "#3399FF",
+        "stroke": "#004488"
+      },
+      {
+        "label": "Grape Chunk",
+        "color": "#5555FF",
+        "stroke": "#111199"
+      },
+      {
+        "label": "Berry Crate",
+        "color": "#AA33AA",
+        "stroke": "#550055"
+      },
+      {
+        "label": "Bronze Safe",
+        "color": "#CD7F32",
+        "stroke": "#8B4513"
+      },
+      {
+        "label": "Silver Vault",
+        "color": "#C0C0C0",
+        "stroke": "#666666"
+      },
+      {
+        "label": "Golden Chest",
+        "color": "#FFD700",
+        "stroke": "#B8860B"
+      },
+      {
+        "label": "Crystal Cube",
+        "color": "#EEFFFF",
+        "stroke": "#546E7A"
+      }
     ]
   },
   "ice": {
-    "id": "ice", "title": "ICE\nMERGE", "type": "procedural", "drawStyle": "ice_shader", "squish": false, "shape": "rounded_rect",
-    "physicsOverrides": { "friction": 0.001, "density": 0.005, "restitution": 0.1 },
-    "ui": { "pageBg": "#000000", "wrapperBg": "#F0F9FF", "bgEffect": "nibs", "chaosName": "AVALANCHE", "textMain": "#0C4A6E", "textAccent": "#0284C7", "textLabel": "#0369A1", "jarBorder": "#38BDF8", "chaosFill": "#E0F2FE", "danger": "#0284C7", "btnBg": "#FFF", "btnBorder": "#7DD3FC" },
+    "id": "ice",
+    "title": "ICE\nMERGE",
+    "type": "procedural",
+    "drawStyle": "ice_shader",
+    "squish": false,
+    "shape": "rounded_rect",
+    "physicsOverrides": {
+      "friction": 0.001,
+      "density": 0.005,
+      "restitution": 0.1
+    },
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#F0F9FF",
+      "bgEffect": "nibs",
+      "chaosName": "AVALANCHE",
+      "textMain": "#0C4A6E",
+      "textAccent": "#0284C7",
+      "textLabel": "#0369A1",
+      "jarBorder": "#38BDF8",
+      "chaosFill": "#E0F2FE",
+      "danger": "#0284C7",
+      "btnBg": "#FFF",
+      "btnBorder": "#7DD3FC"
+    },
     "modes": {
-      "easy":   { "name": "Frost",    "bg": "#BAE6FD", "border": "#7DD3FC", "text": "#0C4A6E" },
-      "medium": { "name": "Glacier",  "bg": "#7DD3FC", "border": "#38BDF8", "text": "#082F49" },
-      "pro":    { "name": "Iceberg",  "bg": "#38BDF8", "border": "#0284C7", "text": "#082F49" }
+      "easy": {
+        "name": "Frost",
+        "bg": "#BAE6FD",
+        "border": "#7DD3FC",
+        "text": "#0C4A6E"
+      },
+      "medium": {
+        "name": "Glacier",
+        "bg": "#7DD3FC",
+        "border": "#38BDF8",
+        "text": "#082F49"
+      },
+      "pro": {
+        "name": "Iceberg",
+        "bg": "#38BDF8",
+        "border": "#0284C7",
+        "text": "#082F49"
+      }
     },
     "items": [
-      { "label": "Snowflake",  "color": "#FFFFFF" }, { "label": "Hailstone",  "color": "#F0F9FF" }, { "label": "Ice Pebble", "color": "#E0F2FE" }, 
-      { "label": "Ice Shard",  "color": "#BAE6FD" }, { "label": "Ice Chunk",  "color": "#7DD3FC" }, { "label": "Ice Block",  "color": "#38BDF8" }, 
-      { "label": "Ice Cube",   "color": "#0EA5E9" }, { "label": "Deep Ice",   "color": "#0284C7" }, { "label": "Glacier",    "color": "#0369A1" }, 
-      { "label": "Iceberg",    "color": "#075985" }, { "label": "Absolute Zero","color": "#082F49" }
+      {
+        "label": "Snowflake",
+        "color": "#FFFFFF"
+      },
+      {
+        "label": "Hailstone",
+        "color": "#F0F9FF"
+      },
+      {
+        "label": "Ice Pebble",
+        "color": "#E0F2FE"
+      },
+      {
+        "label": "Ice Shard",
+        "color": "#BAE6FD"
+      },
+      {
+        "label": "Ice Chunk",
+        "color": "#7DD3FC"
+      },
+      {
+        "label": "Ice Block",
+        "color": "#38BDF8"
+      },
+      {
+        "label": "Ice Cube",
+        "color": "#0EA5E9"
+      },
+      {
+        "label": "Deep Ice",
+        "color": "#0284C7"
+      },
+      {
+        "label": "Glacier",
+        "color": "#0369A1"
+      },
+      {
+        "label": "Iceberg",
+        "color": "#075985"
+      },
+      {
+        "label": "Absolute Zero",
+        "color": "#082F49"
+      }
     ]
   },
   "synthwave": {
-    "id": "synthwave", "title": "RETRO\nMERGE", "type": "procedural", "drawStyle": "synthwave", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#090014", "bgEffect": "synthgrid", "chaosName": "OVERDRIVE", "textMain": "#00FFFF", "textAccent": "#FF00FF", "textLabel": "#FACC15", "jarBorder": "#00FFFF", "chaosFill": "#1A0022", "danger": "#FF0055", "btnBg": "#090014", "btnBorder": "#FF00FF" },
+    "id": "synthwave",
+    "title": "RETRO\nMERGE",
+    "type": "procedural",
+    "drawStyle": "synthwave",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#090014",
+      "bgEffect": "synthgrid",
+      "chaosName": "OVERDRIVE",
+      "textMain": "#00FFFF",
+      "textAccent": "#FF00FF",
+      "textLabel": "#FACC15",
+      "jarBorder": "#00FFFF",
+      "chaosFill": "#1A0022",
+      "danger": "#FF0055",
+      "btnBg": "#090014",
+      "btnBorder": "#FF00FF"
+    },
     "modes": {
-      "easy":   { "name": "Cassette", "bg": "#FF00FF", "border": "#D900D9", "text": "#000000" },
-      "medium": { "name": "Arcade",   "bg": "#00FFFF", "border": "#00D9D9", "text": "#000000" },
-      "pro":    { "name": "Outrun",   "bg": "#FACC15", "border": "#D9A400", "text": "#000000" }
+      "easy": {
+        "name": "Cassette",
+        "bg": "#FF00FF",
+        "border": "#D900D9",
+        "text": "#000000"
+      },
+      "medium": {
+        "name": "Arcade",
+        "bg": "#00FFFF",
+        "border": "#00D9D9",
+        "text": "#000000"
+      },
+      "pro": {
+        "name": "Outrun",
+        "bg": "#FACC15",
+        "border": "#D9A400",
+        "text": "#000000"
+      }
     },
     "items": [
-      { "label": "Bit",      "color": "#FF0055" }, { "label": "Byte",      "color": "#FF00FF" }, { "label": "Chip",      "color": "#AA00FF" }, 
-      { "label": "Drive",    "color": "#0055FF" }, { "label": "Grid",      "color": "#00FFFF" }, { "label": "Vector",    "color": "#00FF55" }, 
-      { "label": "Laser",    "color": "#AAFF00" }, { "label": "Plasma",    "color": "#FFFF00" }, { "label": "Neon",      "color": "#FFAA00" }, 
-      { "label": "Cyber",    "color": "#FF5500" }, { "label": "Matrix",    "color": "#FFFFFF" }
+      {
+        "label": "Bit",
+        "color": "#FF0055"
+      },
+      {
+        "label": "Byte",
+        "color": "#FF00FF"
+      },
+      {
+        "label": "Chip",
+        "color": "#AA00FF"
+      },
+      {
+        "label": "Drive",
+        "color": "#0055FF"
+      },
+      {
+        "label": "Grid",
+        "color": "#00FFFF"
+      },
+      {
+        "label": "Vector",
+        "color": "#00FF55"
+      },
+      {
+        "label": "Laser",
+        "color": "#AAFF00"
+      },
+      {
+        "label": "Plasma",
+        "color": "#FFFF00"
+      },
+      {
+        "label": "Neon",
+        "color": "#FFAA00"
+      },
+      {
+        "label": "Cyber",
+        "color": "#FF5500"
+      },
+      {
+        "label": "Matrix",
+        "color": "#FFFFFF"
+      }
     ]
   },
   "alien": {
-    "id": "alien", "title": "ALIEN\nWORLDS", "type": "procedural", "drawStyle": "planet_shader", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#0F172A", "bgEffect": "stars", "chaosName": "METEOR SHOWER", "textMain": "#F8FAFC", "textAccent": "#2DD4BF", "textLabel": "#94A3B8", "jarBorder": "#2DD4BF", "chaosFill": "#134E4A", "danger": "#14B8A6", "btnBg": "#1E293B", "btnBorder": "#2DD4BF" },
+    "id": "alien",
+    "title": "ALIEN\nWORLDS",
+    "type": "procedural",
+    "drawStyle": "planet_shader",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#0F172A",
+      "bgEffect": "stars",
+      "chaosName": "METEOR SHOWER",
+      "textMain": "#F8FAFC",
+      "textAccent": "#2DD4BF",
+      "textLabel": "#94A3B8",
+      "jarBorder": "#2DD4BF",
+      "chaosFill": "#134E4A",
+      "danger": "#14B8A6",
+      "btnBg": "#1E293B",
+      "btnBorder": "#2DD4BF"
+    },
     "modes": {
-      "easy":     { "name": "Asteroid Belt", "bg": "#34D399", "border": "#059669", "text": "#022C22" },
-      "medium":   { "name": "Exoplanets",    "bg": "#0EA5E9", "border": "#0284C7", "text": "#F0F9FF" },
-      "pro":      { "name": "Deep Galaxy",   "bg": "#8B5CF6", "border": "#6D28D9", "text": "#F3E8FF" }
+      "easy": {
+        "name": "Asteroid Belt",
+        "bg": "#34D399",
+        "border": "#059669",
+        "text": "#022C22"
+      },
+      "medium": {
+        "name": "Exoplanets",
+        "bg": "#0EA5E9",
+        "border": "#0284C7",
+        "text": "#F0F9FF"
+      },
+      "pro": {
+        "name": "Deep Galaxy",
+        "bg": "#8B5CF6",
+        "border": "#6D28D9",
+        "text": "#F3E8FF"
+      }
     },
     "items": [
-      { "label": "Grey Dust",    "color": "#9CA3AF", "color2": "#4B5563", "type": 0 }, { "label": "Toxic Cloud",  "color": "#A3E635", "color2": "#4D7C0F", "type": 1 }, 
-      { "label": "Red Rock",     "color": "#EF4444", "color2": "#991B1B", "type": 0 }, { "label": "Violet Storm", "color": "#8B5CF6", "color2": "#4C1D95", "type": 1 }, 
-      { "label": "Oceanic",      "color": "#3B82F6", "color2": "#1E3A8A", "type": 0 }, { "label": "Solar Wind",   "color": "#FCD34D", "color2": "#B45309", "type": 1 }, 
-      { "label": "Ice Crust",    "color": "#6EE7B7", "color2": "#047857", "type": 0 }, { "label": "Crimson Giant","color": "#BE185D", "color2": "#4C0519", "type": 1 }, 
-      { "label": "Obsidian",     "color": "#374151", "color2": "#111827", "type": 0 }, { "label": "Neon Nebula",  "color": "#2DD4BF", "color2": "#0F766E", "type": 1 },
-      { "label": "Gold Core",    "color": "#FDE047", "color2": "#854D0E", "type": 0, "emissive": true } 
+      {
+        "label": "Grey Dust",
+        "color": "#9CA3AF",
+        "color2": "#4B5563",
+        "type": 0
+      },
+      {
+        "label": "Toxic Cloud",
+        "color": "#A3E635",
+        "color2": "#4D7C0F",
+        "type": 1
+      },
+      {
+        "label": "Red Rock",
+        "color": "#EF4444",
+        "color2": "#991B1B",
+        "type": 0
+      },
+      {
+        "label": "Violet Storm",
+        "color": "#8B5CF6",
+        "color2": "#4C1D95",
+        "type": 1
+      },
+      {
+        "label": "Oceanic",
+        "color": "#3B82F6",
+        "color2": "#1E3A8A",
+        "type": 0
+      },
+      {
+        "label": "Solar Wind",
+        "color": "#FCD34D",
+        "color2": "#B45309",
+        "type": 1
+      },
+      {
+        "label": "Ice Crust",
+        "color": "#6EE7B7",
+        "color2": "#047857",
+        "type": 0
+      },
+      {
+        "label": "Crimson Giant",
+        "color": "#BE185D",
+        "color2": "#4C0519",
+        "type": 1
+      },
+      {
+        "label": "Obsidian",
+        "color": "#374151",
+        "color2": "#111827",
+        "type": 0
+      },
+      {
+        "label": "Neon Nebula",
+        "color": "#2DD4BF",
+        "color2": "#0F766E",
+        "type": 1
+      },
+      {
+        "label": "Gold Core",
+        "color": "#FDE047",
+        "color2": "#854D0E",
+        "type": 0,
+        "emissive": true
+      }
     ]
   },
   "marble": {
-    "id": "marble", "title": "MARBLE\nMERGE", "type": "procedural", "drawStyle": "marble_shader", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#FFFBEB", "bgEffect": "nibs", "chaosName": "SHATTER", "textMain": "#1E293B", "textAccent": "#DB2777", "textLabel": "#D97706", "jarBorder": "#DB2777", "chaosFill": "#FEE2E2", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#FCD34D" },
+    "id": "marble",
+    "title": "MARBLE\nMERGE",
+    "type": "procedural",
+    "drawStyle": "marble_shader",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#FFFBEB",
+      "bgEffect": "nibs",
+      "chaosName": "SHATTER",
+      "textMain": "#1E293B",
+      "textAccent": "#DB2777",
+      "textLabel": "#D97706",
+      "jarBorder": "#DB2777",
+      "chaosFill": "#FEE2E2",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#FCD34D"
+    },
     "modes": {
-      "easy":   { "name": "Shooter",   "bg": "#4ADE80", "border": "#16A34A", "text": "#064E3B" },
-      "medium": { "name": "Player",    "bg": "#FACC15", "border": "#CA8A04", "text": "#713F12" },
-      "pro":    { "name": "Collector", "bg": "#F472B6", "border": "#DB2777", "text": "#831843" }
+      "easy": {
+        "name": "Shooter",
+        "bg": "#4ADE80",
+        "border": "#16A34A",
+        "text": "#064E3B"
+      },
+      "medium": {
+        "name": "Player",
+        "bg": "#FACC15",
+        "border": "#CA8A04",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Collector",
+        "bg": "#F472B6",
+        "border": "#DB2777",
+        "text": "#831843"
+      }
     },
     "items": [
-      { "label": "Cherry Marble", "color": "#FF3333" }, { "label": "Orange Marble", "color": "#FF8800" }, { "label": "Lemon Marble",  "color": "#FFDD00" }, 
-      { "label": "Lime Marble",   "color": "#33CC33" }, { "label": "Blue Razz Marble","color": "#3399FF" }, { "label": "Grape Marble",  "color": "#5555FF" }, 
-      { "label": "Berry Marble",  "color": "#AA33AA" }, { "label": "Bronze Marble", "color": "#CD7F32" }, { "label": "Silver Marble", "color": "#C0C0C0" }, 
-      { "label": "Golden Marble", "color": "#FFD700" }, { "label": "Crystal Marble","color": "#EEFFFF" }
+      {
+        "label": "Cherry Marble",
+        "color": "#FF3333"
+      },
+      {
+        "label": "Orange Marble",
+        "color": "#FF8800"
+      },
+      {
+        "label": "Lemon Marble",
+        "color": "#FFDD00"
+      },
+      {
+        "label": "Lime Marble",
+        "color": "#33CC33"
+      },
+      {
+        "label": "Blue Razz Marble",
+        "color": "#3399FF"
+      },
+      {
+        "label": "Grape Marble",
+        "color": "#5555FF"
+      },
+      {
+        "label": "Berry Marble",
+        "color": "#AA33AA"
+      },
+      {
+        "label": "Bronze Marble",
+        "color": "#CD7F32"
+      },
+      {
+        "label": "Silver Marble",
+        "color": "#C0C0C0"
+      },
+      {
+        "label": "Golden Marble",
+        "color": "#FFD700"
+      },
+      {
+        "label": "Crystal Marble",
+        "color": "#EEFFFF"
+      }
     ]
   },
   "bubble": {
-    "id": "bubble", "title": "BUBBLE\nMERGE", "type": "procedural", "drawStyle": "bubble", "squish": true,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#FFFBEB", "bgEffect": "nibs", "chaosName": "BOILING", "textMain": "#1E293B", "textAccent": "#DB2777", "textLabel": "#D97706", "jarBorder": "#DB2777", "chaosFill": "#FEE2E2", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#FCD34D" },
+    "id": "bubble",
+    "title": "BUBBLE\nMERGE",
+    "type": "procedural",
+    "drawStyle": "bubble",
+    "squish": true,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#FFFBEB",
+      "bgEffect": "nibs",
+      "chaosName": "BOILING",
+      "textMain": "#1E293B",
+      "textAccent": "#DB2777",
+      "textLabel": "#D97706",
+      "jarBorder": "#DB2777",
+      "chaosFill": "#FEE2E2",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#FCD34D"
+    },
     "modes": {
-      "easy":   { "name": "Foam",    "bg": "#4ADE80", "border": "#16A34A", "text": "#064E3B" },
-      "medium": { "name": "Suds",    "bg": "#FACC15", "border": "#CA8A04", "text": "#713F12" },
-      "pro":    { "name": "Boiling", "bg": "#F472B6", "border": "#DB2777", "text": "#831843" }
+      "easy": {
+        "name": "Foam",
+        "bg": "#4ADE80",
+        "border": "#16A34A",
+        "text": "#064E3B"
+      },
+      "medium": {
+        "name": "Suds",
+        "bg": "#FACC15",
+        "border": "#CA8A04",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Boiling",
+        "bg": "#F472B6",
+        "border": "#DB2777",
+        "text": "#831843"
+      }
     },
     "items": [
-      { "label": "Cherry Bubble", "color": "#FF3333" }, { "label": "Orange Bubble", "color": "#FF8800" }, { "label": "Lemon Bubble",  "color": "#FFDD00" }, 
-      { "label": "Lime Bubble",   "color": "#33CC33" }, { "label": "Blue Razz Bubble","color": "#3399FF" }, { "label": "Grape Bubble",  "color": "#5555FF" }, 
-      { "label": "Berry Bubble",  "color": "#AA33AA" }, { "label": "Bronze Bubble", "color": "#CD7F32" }, { "label": "Silver Bubble", "color": "#C0C0C0" }, 
-      { "label": "Golden Bubble", "color": "#FFD700" }, { "label": "Crystal Bubble","color": "#EEFFFF" }
+      {
+        "label": "Cherry Bubble",
+        "color": "#FF3333"
+      },
+      {
+        "label": "Orange Bubble",
+        "color": "#FF8800"
+      },
+      {
+        "label": "Lemon Bubble",
+        "color": "#FFDD00"
+      },
+      {
+        "label": "Lime Bubble",
+        "color": "#33CC33"
+      },
+      {
+        "label": "Blue Razz Bubble",
+        "color": "#3399FF"
+      },
+      {
+        "label": "Grape Bubble",
+        "color": "#5555FF"
+      },
+      {
+        "label": "Berry Bubble",
+        "color": "#AA33AA"
+      },
+      {
+        "label": "Bronze Bubble",
+        "color": "#CD7F32"
+      },
+      {
+        "label": "Silver Bubble",
+        "color": "#C0C0C0"
+      },
+      {
+        "label": "Golden Bubble",
+        "color": "#FFD700"
+      },
+      {
+        "label": "Crystal Bubble",
+        "color": "#EEFFFF"
+      }
     ]
   },
   "planet": {
-    "id": "planet", "title": "PLANET\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/planet", "graphicsExt": ".png", "audioExt": ".mp3" }, "drawStyle": "solid", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#0F172A", "bgEffect": "stars", "chaosName": "BIG BANG", "textMain": "#F8FAFC", "textAccent": "#38BDF8", "textLabel": "#94A3B8", "jarBorder": "#38BDF8", "chaosFill": "#1E1B4B", "danger": "#F59E0B", "btnBg": "#1E293B", "btnBorder": "#38BDF8" },
+    "id": "planet",
+    "title": "PLANET\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/planet",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "drawStyle": "solid",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#0F172A",
+      "bgEffect": "stars",
+      "chaosName": "BIG BANG",
+      "textMain": "#F8FAFC",
+      "textAccent": "#38BDF8",
+      "textLabel": "#94A3B8",
+      "jarBorder": "#38BDF8",
+      "chaosFill": "#1E1B4B",
+      "danger": "#F59E0B",
+      "btnBg": "#1E293B",
+      "btnBorder": "#38BDF8"
+    },
     "modes": {
-      "easy":     { "name": "Inner Planets", "bg": "#34D399", "border": "#059669", "text": "#022C22" },
-      "medium":   { "name": "Solar System",  "bg": "#0EA5E9", "border": "#0284C7", "text": "#F0F9FF" },
-      "pro":      { "name": "Deep Space",    "bg": "#8B5CF6", "border": "#6D28D9", "text": "#F3E8FF" }
+      "easy": {
+        "name": "Inner Planets",
+        "bg": "#34D399",
+        "border": "#059669",
+        "text": "#022C22"
+      },
+      "medium": {
+        "name": "Solar System",
+        "bg": "#0EA5E9",
+        "border": "#0284C7",
+        "text": "#F0F9FF"
+      },
+      "pro": {
+        "name": "Deep Space",
+        "bg": "#8B5CF6",
+        "border": "#6D28D9",
+        "text": "#F3E8FF"
+      }
     },
     "items": [
-      { "label": "Pluto",   "map": "map_0.jpg", "dir": -1 }, 
-      { "label": "Mercury", "map": "map_1.jpg" }, 
-      { "label": "Mars",    "map": "map_2.jpg" }, 
-      { "label": "Venus",   "map": "map_3.jpg", "dir": -1 }, 
-      { "label": "Earth",   "map": "map_4.jpg" }, 
-      { "label": "Neptune", "map": "map_5.jpg" }, 
-      { "label": "Uranus",  "dir": -1 }, 
-      { "label": "Saturn" }, 
-      { "label": "Jupiter", "map": "map_8.jpg" }, 
-      { "label": "Sun",     "map": "map_9.jpg", "emissive": true }, 
-      { "label": "Black Hole", "emissive": true }  
+      {
+        "label": "Pluto",
+        "map": "map_0.jpg",
+        "dir": -1
+      },
+      {
+        "label": "Mercury",
+        "map": "map_1.jpg"
+      },
+      {
+        "label": "Mars",
+        "map": "map_2.jpg"
+      },
+      {
+        "label": "Venus",
+        "map": "map_3.jpg",
+        "dir": -1
+      },
+      {
+        "label": "Earth",
+        "map": "map_4.jpg"
+      },
+      {
+        "label": "Neptune",
+        "map": "map_5.jpg"
+      },
+      {
+        "label": "Uranus",
+        "dir": -1
+      },
+      {
+        "label": "Saturn"
+      },
+      {
+        "label": "Jupiter",
+        "map": "map_8.jpg"
+      },
+      {
+        "label": "Sun",
+        "map": "map_9.jpg",
+        "emissive": true
+      },
+      {
+        "label": "Black Hole",
+        "emissive": true
+      }
     ]
   },
   "sport": {
-    "id": "sport", "title": "SPORT\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/sport", "graphicsExt": ".png", "audioExt": ".mp3" }, "drawStyle": "solid", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#F0FDF4", "bgEffect": "item", "bgEffectParams": { "itemIndices": "all", "density": 15, "opacity": 0.1, "minSize": 10, "maxSize": 20, "minVy": 0.1, "maxVy": 0.5, "minRot": 0.01, "maxRot": 0.02 }, "chaosName": "EXTRA TIME", "textMain": "#14532D", "textAccent": "#EA580C", "textLabel": "#16A34A", "jarBorder": "#EA580C", "chaosFill": "#FFEDD5", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#F97316" },
+    "id": "sport",
+    "title": "SPORT\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/sport",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "drawStyle": "solid",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#F0FDF4",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": "all",
+        "density": 15,
+        "opacity": 0.1,
+        "minSize": 10,
+        "maxSize": 20,
+        "minVy": 0.1,
+        "maxVy": 0.5,
+        "minRot": 0.01,
+        "maxRot": 0.02
+      },
+      "chaosName": "EXTRA TIME",
+      "textMain": "#14532D",
+      "textAccent": "#EA580C",
+      "textLabel": "#16A34A",
+      "jarBorder": "#EA580C",
+      "chaosFill": "#FFEDD5",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#F97316"
+    },
     "modes": {
-      "easy":   { "name": "Amateur",      "bg": "#86EFAC", "border": "#22C55E", "text": "#064E3B" },
-      "medium": { "name": "Professional", "bg": "#FDE047", "border": "#EAB308", "text": "#713F12" },
-      "pro":    { "name": "Champion",     "bg": "#FCA5A5", "border": "#EF4444", "text": "#7F1D1D" }
+      "easy": {
+        "name": "Amateur",
+        "bg": "#86EFAC",
+        "border": "#22C55E",
+        "text": "#064E3B"
+      },
+      "medium": {
+        "name": "Professional",
+        "bg": "#FDE047",
+        "border": "#EAB308",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Champion",
+        "bg": "#FCA5A5",
+        "border": "#EF4444",
+        "text": "#7F1D1D"
+      }
     },
     "items": [
-      { "label": "Golf Ball" }, { "label": "8-Ball" }, { "label": "Cricket Ball" }, { "label": "Tennis Ball" }, { "label": "Volleyball" }, 
-      { "label": "Bowling Ball" }, { "label": "Soccer Ball" }, { "label": "Basketball" }, { "label": "Medicine Ball" }, 
-      { "label": "Yoga Ball" }, { "label": "Beach Ball" }
+      {
+        "label": "Golf Ball"
+      },
+      {
+        "label": "8-Ball"
+      },
+      {
+        "label": "Cricket Ball"
+      },
+      {
+        "label": "Tennis Ball"
+      },
+      {
+        "label": "Volleyball"
+      },
+      {
+        "label": "Bowling Ball"
+      },
+      {
+        "label": "Soccer Ball"
+      },
+      {
+        "label": "Basketball"
+      },
+      {
+        "label": "Medicine Ball"
+      },
+      {
+        "label": "Yoga Ball"
+      },
+      {
+        "label": "Beach Ball"
+      }
     ]
   },
   "fruit": {
-    "id": "fruit", "title": "FRUIT\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/fruit", "graphicsExt": ".png", "audioExt": ".mp3" }, "imageScale": 1.15, "drawStyle": "solid", "squish": true,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#FFF7ED", "bgEffect": "item", "bgEffectParams": { "itemIndices": [0,1,2,5,6,8]}, "chaosName": "FRUIT SALAD", "textMain": "#7C2D12", "textAccent": "#EA580C", "textLabel": "#9A3412", "jarBorder": "#F97316", "chaosFill": "#FFEDD5", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#FDBA74" },
+    "id": "fruit",
+    "title": "FRUIT\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/fruit",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "imageScale": 1.15,
+    "drawStyle": "solid",
+    "squish": true,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#FFF7ED",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": [
+          0,
+          1,
+          2,
+          5,
+          6,
+          8
+        ]
+      },
+      "chaosName": "FRUIT SALAD",
+      "textMain": "#7C2D12",
+      "textAccent": "#EA580C",
+      "textLabel": "#9A3412",
+      "jarBorder": "#F97316",
+      "chaosFill": "#FFEDD5",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#FDBA74"
+    },
     "modes": {
-      "easy":   { "name": "Snack",       "bg": "#86EFAC", "border": "#22C55E", "text": "#064E3B" },
-      "medium": { "name": "Smoothie",    "bg": "#FDE047", "border": "#EAB308", "text": "#713F12" },
-      "pro":    { "name": "Fruit Salad", "bg": "#FCA5A5", "border": "#EF4444", "text": "#7F1D1D" }
+      "easy": {
+        "name": "Snack",
+        "bg": "#86EFAC",
+        "border": "#22C55E",
+        "text": "#064E3B"
+      },
+      "medium": {
+        "name": "Smoothie",
+        "bg": "#FDE047",
+        "border": "#EAB308",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Fruit Salad",
+        "bg": "#FCA5A5",
+        "border": "#EF4444",
+        "text": "#7F1D1D"
+      }
     },
     "items": [
-      { "label": "Blueberry" }, { "label": "Strawberry" }, { "label": "Plum" }, { "label": "Kiwi" }, { "label": "Lemon" }, 
-      { "label": "Peach" }, { "label": "Apple" }, { "label": "Orange" }, { "label": "Pineapple" }, { "label": "Coconut" }, { "label": "Watermelon" }
+      {
+        "label": "Blueberry",
+        "scale": 1.15,
+        "physScaleX": 1.08,
+        "physScaleY": 1.08
+      },
+      {
+        "label": "Strawberry",
+        "anchorX": 0.5,
+        "anchorY": 0.5543478260869565,
+        "physScaleX": 0.92,
+        "scale": 1.15,
+        "physScaleY": 1
+      },
+      {
+        "label": "Plum",
+        "anchorX": 0.5,
+        "anchorY": 0.5869565217391307,
+        "physScaleX": 0.92,
+        "physScaleY": 0.92
+      },
+      {
+        "label": "Kiwi",
+        "physScaleX": 1.15,
+        "physScaleY": 1.15
+      },
+      {
+        "label": "Lemon",
+        "physScaleX": 1.15,
+        "physScaleY": 1.15
+      },
+      {
+        "label": "Peach",
+        "anchorY": 0.5401159420289856,
+        "anchorX": 0.5,
+        "physScaleX": 1.08,
+        "physScaleY": 1.07
+      },
+      {
+        "label": "Apple",
+        "anchorY": 0.566
+      },
+      {
+        "label": "Orange",
+        "scale": 1.15,
+        "physScaleX": 1.12,
+        "physScaleY": 1.12
+      },
+      {
+        "label": "Pineapple",
+        "anchorX": 0.5,
+        "anchorY": 0.6349275362318842,
+        "physScaleX": 0.8,
+        "physScaleY": 0.85
+      },
+      {
+        "label": "Coconut",
+        "scale": 1.15,
+        "physScaleX": 1.08,
+        "physScaleY": 1.08
+      },
+      {
+        "label": "Watermelon",
+        "scale": 1.15,
+        "physScaleX": 1.12,
+        "physScaleY": 1.12
+      }
     ]
   },
   "tropical": {
-    "id": "tropical", "title": "TROPICAL\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/tropical", "graphicsExt": ".png", "audioExt": ".mp3" }, "imageScale": 1.15, "drawStyle": "solid", "squish": true,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#F0FDF4", "bgEffect": "item", "bgEffectParams": { "itemIndices": "all", "density": 15, "opacity": 0.1, "minSize": 10, "maxSize": 20, "minVy": 0.1, "maxVy": 0.5, "minRot": 0.01, "maxRot": 0.02 }, "chaosName": "FRUIT PUNCH", "textMain": "#064E3B", "textAccent": "#10B981", "textLabel": "#047857", "jarBorder": "#10B981", "chaosFill": "#D1FAE5", "danger": "#E11D48", "btnBg": "#FFF", "btnBorder": "#6EE7B7" },
+    "id": "tropical",
+    "title": "TROPICAL\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/tropical",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "imageScale": 1.15,
+    "drawStyle": "solid",
+    "squish": true,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#F0FDF4",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": "all",
+        "density": 15,
+        "opacity": 0.1,
+        "minSize": 10,
+        "maxSize": 20,
+        "minVy": 0.1,
+        "maxVy": 0.5,
+        "minRot": 0.01,
+        "maxRot": 0.02
+      },
+      "chaosName": "FRUIT PUNCH",
+      "textMain": "#064E3B",
+      "textAccent": "#10B981",
+      "textLabel": "#047857",
+      "jarBorder": "#10B981",
+      "chaosFill": "#D1FAE5",
+      "danger": "#E11D48",
+      "btnBg": "#FFF",
+      "btnBorder": "#6EE7B7"
+    },
     "modes": {
-      "easy":   { "name": "Tourist",     "bg": "#6EE7B7", "border": "#059669", "text": "#022C22" },
-      "medium": { "name": "Explorer",    "bg": "#FDE047", "border": "#D97706", "text": "#713F12" },
-      "pro":    { "name": "Local",       "bg": "#F472B6", "border": "#BE185D", "text": "#831843" }
+      "easy": {
+        "name": "Tourist",
+        "bg": "#6EE7B7",
+        "border": "#059669",
+        "text": "#022C22"
+      },
+      "medium": {
+        "name": "Explorer",
+        "bg": "#FDE047",
+        "border": "#D97706",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Local",
+        "bg": "#F472B6",
+        "border": "#BE185D",
+        "text": "#831843"
+      }
     },
     "items": [
-      { "label": "Kumquat" }, { "label": "Lychee" }, { "label": "Rambutan" }, { "label": "Starfruit" }, { "label": "Passionfruit" }, 
-      { "label": "Guava" }, { "label": "Dragonfruit" }, { "label": "Mango" }, { "label": "Papaya" }, { "label": "Durian" }, { "label": "Jackfruit" }
+      {
+        "label": "Kumquat",
+        "anchorY": 0.569,
+        "physScaleY": 1,
+        "physScaleX": 0.84
+      },
+      {
+        "label": "Lychee",
+        "physScaleY": 1.11,
+        "anchorY": 0.516,
+        "physScaleX": 1
+      },
+      {
+        "label": "Rambutan",
+        "scale": 1.15,
+        "physScaleX": 1.15,
+        "physScaleY": 1.15
+      },
+      {
+        "label": "Starfruit",
+        "scale": 1.15,
+        "anchorY": 0.537,
+        "physScaleX": 1
+      },
+      {
+        "label": "Passionfruit",
+        "scale": 1.15,
+        "physScaleX": 1.1,
+        "physScaleY": 1.1
+      },
+      {
+        "label": "Guava",
+        "anchorY": 0.542,
+        "scale": 1.15,
+        "physScaleX": 1.01,
+        "physScaleY": 1.01
+      },
+      {
+        "label": "Dragonfruit",
+        "anchorY": 0.552,
+        "scale": 1.15,
+        "physScaleX": 1.07
+      },
+      {
+        "label": "Mango",
+        "scale": 1.15,
+        "physScaleX": 1.13,
+        "physScaleY": 1.13
+      },
+      {
+        "label": "Papaya",
+        "scale": 1.15,
+        "physScaleX": 1.11,
+        "physScaleY": 1.11
+      },
+      {
+        "label": "Durian",
+        "scale": 1.15,
+        "anchorY": 0.513,
+        "physScaleX": 1.06,
+        "physScaleY": 1.06
+      },
+      {
+        "label": "Jackfruit",
+        "scale": 1.15,
+        "anchorY": 0.52,
+        "physScaleX": 1.09,
+        "physScaleY": 1.09
+      }
     ]
   },
   "doggy": {
-    "id": "doggy", "title": "DOGGY\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/doggy", "graphicsExt": ".png", "audioExt": ".mp3" }, "imageScale": 1.15, "drawStyle": "solid", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#ECFCCB", "bgEffect": "item", "bgEffectParams": { "itemIndices": "all" }, "chaosName": "ZOOMIES", "textMain": "#3F6212", "textAccent": "#4D7C0F", "textLabel": "#65A30D", "jarBorder": "#65A30D", "chaosFill": "#FEF08A", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#A3E635" },
+    "id": "doggy",
+    "title": "DOGGY\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/doggy",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "imageScale": 1.15,
+    "drawStyle": "solid",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#ECFCCB",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": "all"
+      },
+      "chaosName": "ZOOMIES",
+      "textMain": "#3F6212",
+      "textAccent": "#4D7C0F",
+      "textLabel": "#65A30D",
+      "jarBorder": "#65A30D",
+      "chaosFill": "#FEF08A",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#A3E635"
+    },
     "modes": {
-      "easy":   { "name": "Puppy",     "bg": "#A3E635", "border": "#65A30D", "text": "#3F6212" },
-      "medium": { "name": "Doggo",     "bg": "#FDE047", "border": "#CA8A04", "text": "#713F12" },
-      "pro":    { "name": "Good Boy",  "bg": "#FCA5A5", "border": "#DC2626", "text": "#7F1D1D" }
+      "easy": {
+        "name": "Puppy",
+        "bg": "#A3E635",
+        "border": "#65A30D",
+        "text": "#3F6212"
+      },
+      "medium": {
+        "name": "Doggo",
+        "bg": "#FDE047",
+        "border": "#CA8A04",
+        "text": "#713F12"
+      },
+      "pro": {
+        "name": "Good Boy",
+        "bg": "#FCA5A5",
+        "border": "#DC2626",
+        "text": "#7F1D1D"
+      }
     },
     "items": [
-      { "label": "Chihuahua" }, { "label": "Pomeranian" }, { "label": "Pug" }, { "label": "Dachshund" }, { "label": "Corgi" }, 
-      { "label": "Kelpie" }, { "label": "Labrador" }, { "label": "Greyhound" }, { "label": "German Shepherd" }, { "label": "Great Dane" }, { "label": "Saint Bernard" }
+      {
+        "label": "Chihuahua",
+        "scale": 1.15,
+        "anchorX": 0.5,
+        "anchorY": 0.5968309859154928,
+        "physScaleY": 0.9,
+        "physScaleX": 0.79
+      },
+      {
+        "label": "Pomeranian",
+        "scale": 1.15,
+        "anchorY": 0.4693333333333334,
+        "physScaleX": 1.16,
+        "physScaleY": 1.16,
+        "anchorX": 0.5
+      },
+      {
+        "label": "Pug",
+        "anchorY": 0.485,
+        "physScaleY": 1.02,
+        "physScaleX": 1.25
+      },
+      {
+        "label": "Dachshund",
+        "scale": 1.15,
+        "physScaleX": 0.91,
+        "physScaleY": 0.91
+      },
+      {
+        "label": "Corgi",
+        "scale": 1.15,
+        "anchorY": 0.62,
+        "physScaleX": 0.9,
+        "physScaleY": 0.9
+      },
+      {
+        "label": "Kelpie",
+        "scale": 1.15,
+        "physScaleX": 0.67,
+        "physScaleY": 0.88,
+        "anchorX": 0.5,
+        "anchorY": 0.6386336470939789
+      },
+      {
+        "label": "Labrador"
+      },
+      {
+        "label": "Greyhound",
+        "physScaleY": 1.02,
+        "physScaleX": 0.72,
+        "anchorY": 0.524
+      },
+      {
+        "label": "German Shepherd",
+        "anchorX": 0.5,
+        "anchorY": 0.6231884057971013,
+        "scale": 1.15,
+        "physScaleX": 0.92,
+        "physScaleY": 0.92
+      },
+      {
+        "label": "Great Dane",
+        "scale": 1.15,
+        "physScaleY": 0.86,
+        "physScaleX": 0.68,
+        "anchorX": 0.5,
+        "anchorY": 0.6245208651609614
+      },
+      {
+        "label": "Saint Bernard",
+        "anchorX": 0.5,
+        "anchorY": 0.4492753623188405,
+        "scale": 1.15
+      }
     ]
   },
   "kitty": {
-    "id": "kitty", "title": "KITTY\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/kitty", "graphicsExt": ".png", "audioExt": ".mp3" }, "imageScale": 1.15, "drawStyle": "solid", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#E0E7FF", "bgEffect": "item", "bgEffectParams": { "itemIndices": "all" }, "chaosName": "CATNIP", "textMain": "#3730A3", "textAccent": "#4F46E5", "textLabel": "#4338CA", "jarBorder": "#4F46E5", "chaosFill": "#C7D2FE", "danger": "#E11D48", "btnBg": "#FFF", "btnBorder": "#818CF8" },
+    "id": "kitty",
+    "title": "KITTY\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/kitty",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "imageScale": 1.15,
+    "drawStyle": "solid",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#E0E7FF",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": "all"
+      },
+      "chaosName": "CATNIP",
+      "textMain": "#3730A3",
+      "textAccent": "#4F46E5",
+      "textLabel": "#4338CA",
+      "jarBorder": "#4F46E5",
+      "chaosFill": "#C7D2FE",
+      "danger": "#E11D48",
+      "btnBg": "#FFF",
+      "btnBorder": "#818CF8"
+    },
     "modes": {
-      "easy":   { "name": "Kitten",      "bg": "#818CF8", "border": "#4F46E5", "text": "#312E81" },
-      "medium": { "name": "House Cat",   "bg": "#A78BFA", "border": "#7C3AED", "text": "#4C1D95" },
-      "pro":    { "name": "Jungle Cat",  "bg": "#F472B6", "border": "#DB2777", "text": "#831843" }
+      "easy": {
+        "name": "Kitten",
+        "bg": "#818CF8",
+        "border": "#4F46E5",
+        "text": "#312E81"
+      },
+      "medium": {
+        "name": "House Cat",
+        "bg": "#A78BFA",
+        "border": "#7C3AED",
+        "text": "#4C1D95"
+      },
+      "pro": {
+        "name": "Jungle Cat",
+        "bg": "#F472B6",
+        "border": "#DB2777",
+        "text": "#831843"
+      }
     },
     "items": [
-      { "label": "Munchkin" }, { "label": "Siamese" }, { "label": "Persian" }, { "label": "Sphynx" }, { "label": "Maine Coon" }, 
-      { "label": "Bobcat" }, { "label": "Lynx" }, { "label": "Cheetah" }, { "label": "Leopard" }, { "label": "Tiger" }, { "label": "Lion" }
+      {
+        "label": "Munchkin",
+        "anchorX": 0.5,
+        "anchorY": 0.576,
+        "physScaleY": 0.9299999999999999,
+        "physScaleX": 1.14
+      },
+      {
+        "label": "Siamese",
+        "physScaleX": 0.83,
+        "physScaleY": 0.77,
+        "anchorY": 0.602
+      },
+      {
+        "label": "Persian",
+        "physScaleY": 1,
+        "physScaleX": 1.15
+      },
+      {
+        "label": "Sphynx",
+        "physScaleY": 0.72,
+        "anchorX": 0.5,
+        "anchorY": 0.629,
+        "physScaleX": 0.77
+      },
+      {
+        "label": "Maine Coon",
+        "anchorX": 0.5,
+        "anchorY": 0.586,
+        "physScaleX": 0.91,
+        "physScaleY": 0.91
+      },
+      {
+        "label": "Bobcat",
+        "anchorY": 0.636,
+        "physScaleY": 0.88,
+        "physScaleX": 0.88,
+        "anchorX": 0.496
+      },
+      {
+        "label": "Lynx",
+        "physScaleX": 0.77,
+        "physScaleY": 0.77,
+        "anchorY": 0.67
+      },
+      {
+        "label": "Cheetah",
+        "physScaleX": 1.07,
+        "physScaleY": 1.07
+      },
+      {
+        "label": "Leopard",
+        "anchorY": 0.501,
+        "physScaleX": 1.05,
+        "physScaleY": 1.05
+      },
+      {
+        "label": "Tiger",
+        "physScaleX": 1.07,
+        "physScaleY": 1.07,
+        "anchorY": 0.514
+      },
+      {
+        "label": "Lion",
+        "anchorY": 0.478,
+        "physScaleX": 1.02,
+        "physScaleY": 1.1
+      }
     ]
   },
   "cake": {
-    "id": "cake", "title": "CAKE\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/cake", "graphicsExt": ".png", "audioExt": ".mp3" }, "drawStyle": "solid", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#FFFBEB", "bgEffect": "item", "bgEffectParams": { "itemIndices": [0,5,8]}, "chaosName": "OVER INDULGE", "textMain": "#78350F", "textAccent": "#D97706", "textLabel": "#B45309", "jarBorder": "#D97706", "chaosFill": "#FEF3C7", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#F59E0B" },
+    "id": "cake",
+    "title": "CAKE\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/cake",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "drawStyle": "solid",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#FFFBEB",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": [
+          0,
+          5,
+          8
+        ]
+      },
+      "chaosName": "OVER INDULGE",
+      "textMain": "#78350F",
+      "textAccent": "#D97706",
+      "textLabel": "#B45309",
+      "jarBorder": "#D97706",
+      "chaosFill": "#FEF3C7",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#F59E0B"
+    },
     "modes": {
-      "easy":   { "name": "Snack",       "bg": "#FCD34D", "border": "#D97706", "text": "#78350F" },
-      "medium": { "name": "Dessert",     "bg": "#FBBF24", "border": "#B45309", "text": "#78350F" },
-      "pro":    { "name": "Patisserie",  "bg": "#F59E0B", "border": "#92400E", "text": "#451A03" }
+      "easy": {
+        "name": "Snack",
+        "bg": "#FCD34D",
+        "border": "#D97706",
+        "text": "#78350F"
+      },
+      "medium": {
+        "name": "Dessert",
+        "bg": "#FBBF24",
+        "border": "#B45309",
+        "text": "#78350F"
+      },
+      "pro": {
+        "name": "Patisserie",
+        "bg": "#F59E0B",
+        "border": "#92400E",
+        "text": "#451A03"
+      }
     },
     "items": [
-      { "label": "Macaron" }, { "label": "Cookie" }, { "label": "Tartlet" }, { "label": "Cupcake" }, { "label": "Blueberry Muffin" }, 
-      { "label": "Donut" }, { "label": "Cinnamon Roll" }, { "label": "Fruit Pie" }, { "label": "Bundt Cake" }, { "label": "Layer Cake" }, { "label": "Wedding Cake" }
+      {
+        "label": "Macaron"
+      },
+      {
+        "label": "Cookie"
+      },
+      {
+        "label": "Tartlet",
+        "physScaleY": 0.95,
+        "physScaleX": 0.95
+      },
+      {
+        "label": "Cupcake",
+        "physScaleY": 0.96,
+        "physScaleX": 0.96
+      },
+      {
+        "label": "Blueberry Muffin"
+      },
+      {
+        "label": "Donut"
+      },
+      {
+        "label": "Cinnamon Roll"
+      },
+      {
+        "label": "Fruit Pie"
+      },
+      {
+        "label": "Bundt Cake"
+      },
+      {
+        "label": "Layer Cake"
+      },
+      {
+        "label": "Wedding Cake",
+        "physScaleX": 0.97,
+        "physScaleY": 0.97,
+        "anchorX": 0.492,
+        "anchorY": 0.494
+      }
     ]
   },
   "flower": {
-    "id": "flower", "title": "FLOWER\nMERGE", "type": "assets", "assetPaths": { "basePath": "assets/themes/flower", "graphicsExt": ".png", "audioExt": ".mp3" }, "imageScale": 1.15, "drawStyle": "solid", "squish": false,
-    "ui": { "pageBg": "#000000", "wrapperBg": "#ECFDF5", "bgEffect": "item", "bgEffectParams": { "itemIndices": "all"}, "chaosName": "BOUQUET", "textMain": "#064E3B", "textAccent": "#10B981", "textLabel": "#047857", "jarBorder": "#10B981", "chaosFill": "#D1FAE5", "danger": "#DC2626", "btnBg": "#FFF", "btnBorder": "#34D399" },
+    "id": "flower",
+    "title": "FLOWER\nMERGE",
+    "type": "assets",
+    "assetPaths": {
+      "basePath": "assets/themes/flower",
+      "graphicsExt": ".png",
+      "audioExt": ".mp3"
+    },
+    "imageScale": 1.15,
+    "drawStyle": "solid",
+    "squish": false,
+    "ui": {
+      "pageBg": "#000000",
+      "wrapperBg": "#ECFDF5",
+      "bgEffect": "item",
+      "bgEffectParams": {
+        "itemIndices": "all"
+      },
+      "chaosName": "BOUQUET",
+      "textMain": "#064E3B",
+      "textAccent": "#10B981",
+      "textLabel": "#047857",
+      "jarBorder": "#10B981",
+      "chaosFill": "#D1FAE5",
+      "danger": "#DC2626",
+      "btnBg": "#FFF",
+      "btnBorder": "#34D399"
+    },
     "modes": {
-      "easy":   { "name": "Window Box",  "bg": "#6EE7B7", "border": "#059669", "text": "#022C22" },
-      "medium": { "name": "Garden",      "bg": "#34D399", "border": "#047857", "text": "#022C22" },
-      "pro":    { "name": "Greenhouse",  "bg": "#10B981", "border": "#065F46", "text": "#ECFDF5" }
+      "easy": {
+        "name": "Window Box",
+        "bg": "#6EE7B7",
+        "border": "#059669",
+        "text": "#022C22"
+      },
+      "medium": {
+        "name": "Garden",
+        "bg": "#34D399",
+        "border": "#047857",
+        "text": "#022C22"
+      },
+      "pro": {
+        "name": "Greenhouse",
+        "bg": "#10B981",
+        "border": "#065F46",
+        "text": "#ECFDF5"
+      }
     },
     "items": [
-      { "label": "Buttercup" }, { "label": "Daisy" }, { "label": "Pansy" }, { "label": "Marigold" }, { "label": "Carnation" }, 
-      { "label": "Tulip" }, { "label": "Rose" }, { "label": "Dahlia" }, { "label": "Lotus" }, { "label": "Sunflower" }, { "label": "Giant Rafflesia" }
+      {
+        "label": "Buttercup",
+        "physScaleX": 1.15,
+        "physScaleY": 1.15,
+        "anchorY": 0.511
+      },
+      {
+        "label": "Daisy",
+        "physScaleX": 1.13,
+        "physScaleY": 1.13
+      },
+      {
+        "label": "Pansy",
+        "physScaleX": 1.19,
+        "physScaleY": 1.19
+      },
+      {
+        "label": "Marigold",
+        "physScaleX": 1.15,
+        "physScaleY": 1.15
+      },
+      {
+        "label": "Carnation",
+        "physScaleX": 1.14,
+        "physScaleY": 1.14
+      },
+      {
+        "label": "Tulip",
+        "physScaleX": 1.18,
+        "physScaleY": 1.18
+      },
+      {
+        "label": "Rose",
+        "physScaleX": 1.18,
+        "physScaleY": 1.18,
+        "anchorY": 0.518
+      },
+      {
+        "label": "Dahlia",
+        "physScaleY": 1.12,
+        "physScaleX": 1.12
+      },
+      {
+        "label": "Lotus",
+        "physScaleY": 1.13,
+        "physScaleX": 1.13
+      },
+      {
+        "label": "Sunflower",
+        "physScaleY": 1.11,
+        "physScaleX": 1.11
+      },
+      {
+        "label": "Giant Rafflesia",
+        "physScaleY": 1.12,
+        "physScaleX": 1.12
+      }
     ]
   }
 }
