@@ -33,7 +33,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.3.5",
+        LIB_VERSION: "1.3.6",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics, 3 = Deep Debug
         
         // --- SHARED UTILS ---
@@ -284,11 +284,13 @@ let fbApp, fbAuth, fbFirestore;
 
                     MHCore.log(`[MHCore] Initiating push to Firestore (TS: ${pushTime})...`, null, 3);
 
+                    // Note: Removed `{ merge: true }` parameter here to ensure a true total-state replacement.
+                    // This guarantees nested properties (like deleted decks) are accurately reflected on the server.
                     await fbFirestore.setDoc(docRef, {
                         payload: payload,
                         lastUpdated: pushTime,
                         device: navigator.userAgent
-                    }, { merge: true }); 
+                    }); 
                     
                     MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId} (TS: ${pushTime})`, null, 2);
                     return true;
@@ -814,7 +816,7 @@ let fbApp, fbAuth, fbFirestore;
                 if (!manifest.manual) manifest.manual = []; 
 
                 const now = Date.now();
-                const rawState = options.getStateFn();
+                const rawState = await options.getStateFn(); // Added await for async states
                 if (!rawState) return false;
 
                 let payload = JSON.stringify(rawState);
@@ -891,7 +893,7 @@ let fbApp, fbAuth, fbFirestore;
 
                 // 2. Generate Physical Payload
                 if (needsRecent || needsHourly || needsDaily) {
-                    const rawState = options.getStateFn();
+                    const rawState = await options.getStateFn(); // Added await for async states
                     if (!rawState) {
                         MHCore.log("[MHCore] App returned empty state, aborting save.", null, 0);
                         return;
