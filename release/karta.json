@@ -1,5 +1,5 @@
 {
-  "version": "1.14.0",
+  "version": "1.9.1",
   "url": "https://matthodges.itch.io/karta",
   "bundle_rules": {
     "include": [
@@ -7,5 +7,5 @@
       "assets/"
     ]
   },
-  "notes": "Prepared for 1.14.0 release."
+  "notes": "Prepared for 1.9.1 release."
 }
