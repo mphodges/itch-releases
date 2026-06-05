@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "url": "https://matthodges.itch.io/maze",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/"
+    ]
+  },
+  "notes": "Initial release."
+}
