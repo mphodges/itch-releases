@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "url": "https://matthodges.itch.io/unwrapped",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/",
+      "logo/",
+      "favicon.png"
+    ]
+  },
+  "notes": "Prepared for 1.0.0 release."
+}

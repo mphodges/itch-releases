@@ -4,7 +4,8 @@
   "bundle_rules": {
     "include": [
       "index.html",
-      "assets/"
+      "assets/",
+      "js/"
     ]
   },
   "notes": "Initial release."
