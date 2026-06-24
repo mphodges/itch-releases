@@ -1,0 +1,11 @@
+{
+  "version": "0.2.23",
+  "url": "https://matthodges.itch.io/anima",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/"
+    ]
+  },
+  "notes": "Prepared for 0.2.23 release."
+}
