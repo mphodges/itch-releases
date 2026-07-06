@@ -1,0 +1,14 @@
+{
+  "version": "0.11.17",
+  "url": "https://matthodges.itch.io/solodoku",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/",
+      "src/",
+      "levels/"
+    ]
+  },
+  "version_file": "www/src/config.js",
+  "notes": "Prepared for 0.11.17 release."
+}
