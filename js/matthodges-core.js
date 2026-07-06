@@ -768,7 +768,17 @@ let fbApp, fbAuth, fbFirestore;
         // ====================================================================
 
         backups: {
-            _intervals: {}, 
+            _intervals: {},
+            // Guards against a read-check-write race in _performBackup: if two
+            // calls for the same appId overlap (e.g. startAutoBackup firing its
+            // immediate call again from a quick app restart/WebView reload
+            // while a previous call is still awaiting getStateFn/compression),
+            // both would read the manifest before either writes back, both
+            // conclude a "recent" snapshot is needed, and both write one --
+            // producing duplicate backups with the identical timestamp. Fixed
+            // 2026-07-06: a call bails out immediately if another is already
+            // in flight for the same appId, rather than racing it.
+            _backupLocks: {},
             _manifestKey: (appId) => `mhcore_backups_manifest_${appId}`,
             _dataKey: (appId, id) => `mhcore_backup_data_${appId}_${id}`,
 
@@ -863,6 +873,23 @@ let fbApp, fbAuth, fbFirestore;
             },
 
             _performBackup: async function(appId, options) {
+                // See _backupLocks comment above: bail out rather than race an
+                // already-in-flight call for this same appId.
+                if (this._backupLocks[appId]) {
+                    MHCore.log(`[MHCore] Backup already in progress for '${appId}', skipping overlapping call.`, null, 3);
+                    return;
+                }
+                this._backupLocks[appId] = true;
+                try {
+                    await this._performBackupLocked(appId, options);
+                } finally {
+                    delete this._backupLocks[appId];
+                }
+            },
+
+            // Original _performBackup body, now only ever run one-at-a-time per
+            // appId (see the lock wrapper above) -- unchanged otherwise.
+            _performBackupLocked: async function(appId, options) {
                 // Ensure legacy states map safely to the new GFS schema
                 const manifest = MHCore.storage.get(this._manifestKey(appId), { recent: [], hourly: [], daily: [], manual: [] });
                 if (!manifest.recent) manifest.recent = [];
