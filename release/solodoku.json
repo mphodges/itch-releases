@@ -1,5 +1,5 @@
 {
-  "version": "0.11.17",
+  "version": "0.9.9",
   "url": "https://matthodges.itch.io/solodoku",
   "bundle_rules": {
     "include": [
@@ -10,5 +10,5 @@
     ]
   },
   "version_file": "www/src/config.js",
-  "notes": "Prepared for 0.11.17 release."
+  "notes": "Prepared for 0.9.9 release."
 }

@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "url": "https://matthodges.itch.io/retroscape",
+  "version_file": "src/components/engine/overlayConstants.js",
+  "build_cmd": "npm run build",
+  "bundle_rules": {
+    "include": [
+      "**/*"
+    ]
+  },
+  "notes": "Prepared for 1.0.0 release."
+}

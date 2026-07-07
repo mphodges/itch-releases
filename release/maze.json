@@ -1,5 +1,6 @@
 {
   "version": "1.0.0",
+  "version_file": "www/js/constants/data.js",
   "url": "https://matthodges.itch.io/maze",
   "bundle_rules": {
     "include": [

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.10",
   "url": "https://matthodges.itch.io/anima",
   "bundle_rules": {
     "include": [
@@ -9,5 +9,5 @@
   },
   "version_file": "src/App.jsx",
   "build_cmd": "npm run build",
-  "notes": "Prepared for 1.0.7 release."
+  "notes": "Prepared for 1.0.10 release."
 }
