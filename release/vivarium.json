@@ -1,0 +1,13 @@
+{
+  "version": "0.1.0",
+  "url": "https://matthodges.itch.io/vivarium",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/"
+    ]
+  },
+  "version_file": "src/appConfig.js",
+  "build_cmd": "npm run build",
+  "notes": "Prepared for 0.1.0 release."
+}
