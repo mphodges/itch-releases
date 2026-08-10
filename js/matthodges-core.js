@@ -908,12 +908,35 @@ let fbApp, fbAuth, fbFirestore;
                 let needsHourly = false;
                 let needsDaily = false;
 
-                // 1. Evaluate Generation Requirements
-                const lastDaily = manifest.daily[0];
-                if (!lastDaily || new Date(lastDaily.timestamp).toDateString() !== currentDate) needsDaily = true;
+                // 1. Evaluate Generation Requirements — checked against ALL
+                // automated entries (recent+hourly+daily combined), not just
+                // manifest.hourly[0]/manifest.daily[0]. The GC sweep at the
+                // end of this function (step 3) re-buckets every backup
+                // under 1hr old into `recent` purely by age, regardless of
+                // which need it originally satisfied — that leaves
+                // manifest.hourly/manifest.daily genuinely empty for the
+                // entire first hour after any backup. Reading only the
+                // per-tier array's own [0] made needsHourly/needsDaily
+                // re-trigger on every single call within that first hour
+                // (every 10-minute interval tick, and every page load/mount),
+                // each producing a fresh duplicate hourly/daily entry even
+                // though a functionally-recent one already existed moments
+                // earlier — the cluster of near-identical-timestamp entries
+                // right at "now" a user could see in the Backup Timeline.
+                // Fixed 2026-08-08: search the full pool for the most recent
+                // entry that already satisfies each tier's own window,
+                // wherever the GC sweep currently has it bucketed.
+                const allAutomatedExisting = [...manifest.recent, ...manifest.hourly, ...manifest.daily];
 
-                const lastHourly = manifest.hourly[0];
-                if (!lastHourly || new Date(lastHourly.timestamp).getHours() !== currentHour || new Date(lastHourly.timestamp).toDateString() !== currentDate) needsHourly = true;
+                const lastDaily = allAutomatedExisting
+                    .filter(b => new Date(b.timestamp).toDateString() === currentDate)
+                    .sort((a, b) => b.timestamp - a.timestamp)[0];
+                if (!lastDaily) needsDaily = true;
+
+                const lastHourly = allAutomatedExisting
+                    .filter(b => new Date(b.timestamp).getHours() === currentHour && new Date(b.timestamp).toDateString() === currentDate)
+                    .sort((a, b) => b.timestamp - a.timestamp)[0];
+                if (!lastHourly) needsHourly = true;
 
                 const lastRecent = manifest.recent[0];
                 if (!lastRecent || Math.floor(new Date(lastRecent.timestamp).getMinutes() / 10) !== current10MinBlock || new Date(lastRecent.timestamp).getHours() !== currentHour) needsRecent = true;
