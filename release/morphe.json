@@ -9,5 +9,5 @@
   },
   "version_file": "src/appConfig.js",
   "build_cmd": "npm run build",
-  "notes": "Initial release."
+  "notes": "Prepared for 1.0.0 release."
 }
