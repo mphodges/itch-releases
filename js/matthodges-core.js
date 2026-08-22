@@ -33,7 +33,7 @@ let fbApp, fbAuth, fbFirestore;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
 
     const MHCore = {
-        LIB_VERSION: "1.3.6",
+        LIB_VERSION: "1.3.7",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics, 3 = Deep Debug
         
         // --- SHARED UTILS ---
@@ -70,11 +70,53 @@ let fbApp, fbAuth, fbFirestore;
          * @returns {boolean} True if embedded in an iframe.
          */
         isCanvas: function() {
-            try { 
-                return window.self !== window.top; 
-            } catch (e) { 
-                return true; 
+            try {
+                return window.self !== window.top;
+            } catch (e) {
+                return true;
             }
+        },
+
+        /**
+         * Two deliberately separate questions (2026-08-22), lifted from a pattern
+         * proven and iterated on across `maze` and several other apps before landing
+         * here — do not conflate them into one check:
+         *  - isMobileWidth: "how much space is there?" — width-only, matches
+         *    Tailwind's `md` breakpoint (768px) exactly. Drives LAYOUT SHAPE
+         *    (compact vs wide UI). Live/reactive by nature (a window can resize),
+         *    so callers should wrap this in their own matchMedia listener rather
+         *    than caching the boolean — see any of maze/anima/epicycle/morphe/
+         *    vivarium's App.jsx for the established useState+useEffect pattern.
+         *  - isTouchDevice: "can this device press a key?" — capability-based,
+         *    via navigator.maxTouchPoints. Drives WHICH CONTROLS show (touch
+         *    affordances vs keyboard hints). A static hardware fact, not
+         *    reactive — safe to read once.
+         * A `(hover: hover)`/`(pointer: coarse)` media-query approach was tried
+         * first and rejected: proved unreliable across DevTools device emulation.
+         * Without this split, a wide touch device (iPad Pro, 1024px) would get
+         * desktop-width treatment and be shown keyboard hints with no way to act
+         * on them.
+         * @returns {boolean} True if the viewport is at or below the mobile width breakpoint.
+         */
+        isMobileWidth: function() {
+            return typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+        },
+
+        /** @returns {boolean} True if the device reports any touch points (a static hardware fact). */
+        isTouchDevice: function() {
+            return typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
+        },
+
+        /**
+         * Convenience OR of the two checks above, for callers that genuinely just
+         * want "should I show mobile-oriented UI" and don't need the width/touch
+         * distinction themselves (e.g. gating whether to show keyboard-shortcut
+         * text at all). Prefer the two individual checks directly when layout
+         * shape and control affordance need to differ, same as maze's own split.
+         * @returns {boolean}
+         */
+        isMobileDevice: function() {
+            return MHCore.isMobileWidth() || MHCore.isTouchDevice();
         },
 
         // ====================================================================
