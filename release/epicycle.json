@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "url": "https://matthodges.itch.io/epicycle",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/",
+      "epicycle-icon.png",
+      "favicon.svg",
+      "matcap/"
+    ]
+  },
+  "version_file": "src/version.js",
+  "build_cmd": "npm run build",
+  "notes": "Prepared for 1.0.0 release."
+}
