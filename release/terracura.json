@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "url": "https://matthodges.itch.io/terracura",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "assets/",
+      "favicon.svg"
+    ]
+  },
+  "version_file": "src/config.ts",
+  "build_cmd": "npm run build",
+  "notes": "Prepared for 0.1.0 release."
+}
