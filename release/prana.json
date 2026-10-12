@@ -1,5 +1,5 @@
 {
-  "version": "0.9.0",
+  "version": "1.0.0",
   "url": "https://matthodges.itch.io/prana",
   "bundle_rules": {
     "include": [
@@ -10,6 +10,6 @@
   },
   "version_file": "src/appConfig.js",
   "build_cmd": "npm run build",
-  "notes": "Prepared for 0.9.0 release.",
+  "notes": "Prepared for 1.0.0 release.",
   "dev_version_file": "src/appConfig.js"
 }
