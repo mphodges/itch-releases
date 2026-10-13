@@ -1,0 +1,15 @@
+{
+  "version": "0.9.9",
+  "url": "https://matthodges.itch.io/physarum",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "favicon.svg",
+      "assets/"
+    ]
+  },
+  "version_file": "src/appConfig.js",
+  "build_cmd": "npm run build",
+  "notes": "Prepared for 0.9.9 release.",
+  "dev_version_file": "src/appConfig.js"
+}
