@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "url": "https://matthodges.itch.io/fluens",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "favicon.svg",
+      "assets/"
+    ]
+  },
+  "version_file": "src/appConfig.js",
+  "build_cmd": "npm run build",
+  "notes": "New app (2026-10-15), unreleased. The itch page does not exist yet; the user creates it.",
+  "dev_version_file": "src/appConfig.js"
+}
