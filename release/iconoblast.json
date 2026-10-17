@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "url": "https://matthodges.itch.io/iconoblast",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "favicon.svg",
+      "assets/"
+    ]
+  },
+  "version_file": "src/config.js",
+  "build_cmd": "npm run build",
+  "notes": "Prepared for 0.1.0 release.",
+  "dev_version_file": "src/config.js"
+}
