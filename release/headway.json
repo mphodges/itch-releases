@@ -1,0 +1,15 @@
+{
+  "version": "0.1.0",
+  "url": "https://matthodges.itch.io/headway",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "favicon.svg",
+      "assets/"
+    ]
+  },
+  "version_file": "src/config.ts",
+  "build_cmd": "npm run build",
+  "notes": "New app (2026-10-26), unreleased and private. No itch page; registered for the version and APK tooling only.",
+  "dev_version_file": "src/config.ts"
+}
