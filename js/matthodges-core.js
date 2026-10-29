@@ -41,9 +41,12 @@ let fbApp, fbAuth, fbFirestore;
     let _pushChain = Promise.resolve();
     let _ownPushTimes = [];
     let _conflictOpen = false;
+    // 1.3.9: the vault of the last connect attempt, kept when it fails (opened offline), so changes made before
+    // a successful connect are still marked as unsynced. Cleared by disconnect().
+    let _lastAppId = null, _lastVaultId = null;
 
     const MHCore = {
-        LIB_VERSION: "1.3.8",
+        LIB_VERSION: "1.3.9",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics, 3 = Deep Debug
         
         // --- SHARED UTILS ---
@@ -197,6 +200,8 @@ let fbApp, fbAuth, fbFirestore;
                     db = fbFirestore.getFirestore(app);
                     activeVaultId = vaultId;
                     activeAppId = appId;
+                    _lastVaultId = vaultId;
+                    _lastAppId = appId;
 
                     MHCore.log("[MHCore] Authenticating with Firebase...", null, 3);
                     await fbAuth.signInAnonymously(auth);
@@ -294,7 +299,15 @@ let fbApp, fbAuth, fbFirestore;
              * @returns {Promise<boolean>} True if the push was successful.
              */
             push: function(payload, forceOverwrite = false) {
-                if (!isConnected || !user || !activeVaultId || !activeAppId) return Promise.resolve(false);
+                if (!isConnected || !user || !activeVaultId || !activeAppId) {
+                    // Not connected, for example the app opened offline and connect failed: remember the change, so
+                    // the next connect asks before taking a newer cloud copy, or sends it if the cloud has not moved (1.3.9).
+                    if (_lastAppId && _lastVaultId) {
+                        _pendingPayload = payload;
+                        this._setDirty(true);
+                    }
+                    return Promise.resolve(false);
+                }
                 _pendingPayload = payload;
                 const seq = ++_pushSeq;
                 this._setDirty(true);
@@ -417,6 +430,8 @@ let fbApp, fbAuth, fbFirestore;
                 _pendingPayload = null;
                 _conflictOpen = false;
                 _ownPushTimes = [];
+                _lastAppId = null;
+                _lastVaultId = null;
                 MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.", null, 2);
             },
 
@@ -435,7 +450,12 @@ let fbApp, fbAuth, fbFirestore;
             /** @private Records whether this device has changes the cloud has not confirmed (1.3.8). */
             _setDirty: function(dirty) {
                 _dirty = dirty;
-                if (activeAppId && activeVaultId) MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: memLastSynced, dirty: _dirty });
+                // Also before a connect has succeeded (1.3.9): the vault last asked for, keeping its lastSynced as stored
+                const appId = activeAppId || _lastAppId, vaultId = activeVaultId || _lastVaultId;
+                if (!appId || !vaultId) return;
+                const key = `mhcore_sync_${appId}_${vaultId}`;
+                const manifest = MHCore.storage.get(key, { lastSynced: 0 });
+                MHCore.storage.set(key, { lastSynced: manifest.lastSynced || 0, dirty: _dirty });
             },
 
             /**
