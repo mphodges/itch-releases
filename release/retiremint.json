@@ -9,5 +9,6 @@
   },
   "version_file": "package.json",
   "build_cmd": "npm run build",
-  "notes": "Initial release."
+  "notes": "Initial release.",
+  "dev_version_file": "src/config.ts"
 }
