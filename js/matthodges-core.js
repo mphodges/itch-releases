@@ -31,9 +31,19 @@ let fbApp, fbAuth, fbFirestore;
     let db, auth, user, activeVaultId, activeAppId, unsubscribeSnapshot, _onError;
     let isConnected = false;
     let memLastSynced = 0; // RAM isolation to prevent multi-tab cross-talk
+    // 1.3.8: offline safety. `_dirty` (also kept in the trust manifest) means this device has changes
+    // the cloud has not confirmed; while it is set, newer cloud data raises the conflict choice instead
+    // of overwriting. `_pendingPayload` is the latest state the app handed over, retried on reconnect.
+    let _callbacks = {};
+    let _dirty = false;
+    let _pendingPayload = null;
+    let _pushSeq = 0;
+    let _pushChain = Promise.resolve();
+    let _ownPushTimes = [];
+    let _conflictOpen = false;
 
     const MHCore = {
-        LIB_VERSION: "1.3.7",
+        LIB_VERSION: "1.3.8",
         verbosity: 1, // 0 = Critical/Errors, 1 = Standard Sync, 2 = Verbose Engine Diagnostics, 3 = Deep Debug
         
         // --- SHARED UTILS ---
@@ -136,12 +146,13 @@ let fbApp, fbAuth, fbFirestore;
              * @param {string} appId - The namespace for the app (e.g., 'karta', 'flow').
              * @param {string} vaultId - The user's secret Sync Key.
              * @param {object} localData - The current local state of the app to be merged/pushed.
-             * @param {object} callbacks - Object containing onUpdate, onError, and onConflict handlers.
+             * @param {object} callbacks - Object containing onUpdate, onError, onConflict and (optional, 1.3.8) onSynced handlers. onConflict can fire after connecting too, when newer cloud data meets unsynced local changes.
              * @returns {Promise<boolean>} True if connection and handshake succeed.
              */
             connect: async function(configStr, appId, vaultId, localData, callbacks = {}) {
                 callbacks = callbacks || {};
                 _onError = callbacks.onError;
+                _callbacks = callbacks;
 
                 if (!configStr || !vaultId || !appId) {
                     MHCore.log("[MHCore] Sync aborted: Missing config, appId, or vaultId.", null, 0);
@@ -204,6 +215,8 @@ let fbApp, fbAuth, fbFirestore;
                     // Boot up RAM state from physical storage
                     const localSyncManifest = MHCore.storage.get(`mhcore_sync_${appId}_${vaultId}`, { lastSynced: 0 });
                     memLastSynced = localSyncManifest.lastSynced;
+                    _dirty = !!localSyncManifest.dirty;
+                    _pendingPayload = localData || null;
 
                     if (!cloudData) {
                         // Scenario A: Cloud is empty. Push local data immediately.
@@ -214,44 +227,41 @@ let fbApp, fbAuth, fbFirestore;
                         // Scenario B: Local is empty. Pull cloud data silently.
                         MHCore.log(`[MHCore] Local empty. Pulling from cloud (TS: ${cloudData.lastUpdated}).`, null, 2);
                         if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
-                        this._markSynced(cloudData.lastUpdated);
-                        
+                        this._markSynced(cloudData.lastUpdated, false);
+
                     } else if (memLastSynced) {
                         // Scenario C: Both have data, device is known and trusted.
-                        if (cloudData.lastUpdated > memLastSynced) {
+                        if (cloudData.lastUpdated > memLastSynced && _dirty && callbacks.onConflict) {
+                            // Scenario C2: this device has changes the cloud never confirmed, and the cloud moved on too.
+                            return new Promise((resolve) => this._raiseConflict(cloudData, () => {
+                                this._setupListener(callbacks.onUpdate);
+                                this._setupNetworkListeners();
+                                resolve(true);
+                            }));
+                        } else if (cloudData.lastUpdated > memLastSynced) {
                             MHCore.log(`[MHCore] Cloud is newer (Cloud: ${cloudData.lastUpdated} > Local: ${memLastSynced}). Pulling.`, null, 2);
                             if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
-                            this._markSynced(cloudData.lastUpdated);
+                            this._markSynced(cloudData.lastUpdated, false);
+                        } else if (_dirty) {
+                            MHCore.log(`[MHCore] Local has unsynced changes and the cloud has not moved on. Pushing.`, null, 2);
+                            await this.push(localData);
                         } else {
                             MHCore.log(`[MHCore] Local is newer/equal (Cloud: ${cloudData.lastUpdated} <= Local: ${memLastSynced}). Ready to push.`, null, 3);
                         }
-                        
+
                     } else {
                         // Scenario D: Conflict. Local has data, Cloud has data, device is NOT trusted.
-                        MHCore.log(`[MHCore] Sync Conflict Detected! (Cloud TS: ${cloudData.lastUpdated})`, null, 0);
-                        
                         return new Promise((resolve) => {
                             if (callbacks.onConflict) {
-                                callbacks.onConflict(
-                                    cloudData.lastUpdated, 
-                                    async (decision) => {
-                                        if (decision === 'local') {
-                                            MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 2);
-                                            await this.push(localData || {}, true);
-                                        } else if (decision === 'cloud') {
-                                            MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 2);
-                                            if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
-                                            this._markSynced(cloudData.lastUpdated);
-                                        }
-                                        this._setupListener(callbacks.onUpdate);
-                                        this._setupNetworkListeners();
-                                        resolve(true);
-                                    }
-                                );
+                                this._raiseConflict(cloudData, () => {
+                                    this._setupListener(callbacks.onUpdate);
+                                    this._setupNetworkListeners();
+                                    resolve(true);
+                                });
                             } else {
                                 MHCore.log("[MHCore] Conflict bypassed (no handler). Assuming Cloud override.", null, 2);
                                 if (callbacks.onUpdate) callbacks.onUpdate(cloudData.payload);
-                                this._markSynced(cloudData.lastUpdated);
+                                this._markSynced(cloudData.lastUpdated, false);
                                 this._setupListener(callbacks.onUpdate);
                                 this._setupNetworkListeners();
                                 resolve(true);
@@ -283,64 +293,101 @@ let fbApp, fbAuth, fbFirestore;
              * @param {boolean} forceOverwrite - Optional flag to bypass timestamp safety blocks.
              * @returns {Promise<boolean>} True if the push was successful.
              */
-            push: async function(payload, forceOverwrite = false) {
-                if (!isConnected || !user || !activeVaultId || !activeAppId) return false;
-                
+            push: function(payload, forceOverwrite = false) {
+                if (!isConnected || !user || !activeVaultId || !activeAppId) return Promise.resolve(false);
+                _pendingPayload = payload;
+                const seq = ++_pushSeq;
+                this._setDirty(true);
+                // One upload at a time, in order, so two quick pushes never race each other's check.
+                const run = _pushChain.then(() => this._pushNow(payload, forceOverwrite, seq));
+                _pushChain = run.catch(() => {});
+                return run;
+            },
+
+            /**
+             * @private
+             * The upload itself: one Firestore transaction that reads the vault on the server, checks it has
+             * not moved on, and writes. Unlike a plain write, a transaction is never queued offline to land
+             * later with an old timestamp; it fails, the device stays dirty, and the upload is retried when
+             * the network comes back (1.3.8). The device is marked synced only after the server confirms.
+             */
+            _pushNow: async function(payload, forceOverwrite, seq) {
+                if (!isConnected || !activeVaultId || !activeAppId) return false;
+                const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
+                let staleCloud = null;
                 try {
-                    const docRef = fbFirestore.doc(db, 'artifacts', activeAppId, 'public', 'data', 'vaults', activeVaultId);
-                    
-                    // 1. PRE-FLIGHT CHECK: Eliminate Blind Writes
-                    let cloudSnap;
-                    try {
-                        // In Firebase v9+, getDocFromServer explicitly bypasses the offline cache. 
-                        // If the socket is dead, this throws an error and prevents the push entirely.
-                        if (fbFirestore.getDocFromServer) {
-                            cloudSnap = await fbFirestore.getDocFromServer(docRef);
-                        } else {
-                            cloudSnap = await fbFirestore.getDoc(docRef);
-                            if (cloudSnap.metadata && cloudSnap.metadata.fromCache) throw new Error("fromCache");
+                    const pushTime = await fbFirestore.runTransaction(db, async (tx) => {
+                        staleCloud = null;
+                        const snap = await tx.get(docRef);
+                        const cloudData = snap.exists() ? snap.data() : null;
+                        const cloudTime = cloudData ? (cloudData.lastUpdated || 0) : 0;
+                        if (cloudTime > memLastSynced && !forceOverwrite) {
+                            staleCloud = cloudData;
+                            throw new Error("PUSH_BLOCKED_STALE_STATE");
                         }
-                    } catch (err) {
-                        MHCore.log("[MHCore] Push aborted: Socket dead. Preventing offline blind overwrite.", null, 0);
-                        if (!this._isReconnecting) this.reconnectNetwork('failed_push');
-                        return false;
-                    }
-
-                    // If we made it here, we hit the live server. Check for remote changes we missed.
-                    if (cloudSnap.exists()) {
-                        const cloudData = cloudSnap.data();
-                        if (cloudData.lastUpdated > memLastSynced && !forceOverwrite) {
-                            MHCore.log(`[MHCore] Push blocked! Cloud has newer data (${cloudData.lastUpdated} > ${memLastSynced}).`, null, 0);
-                            this.disconnect();
-                            if (_onError) _onError(new Error("PUSH_BLOCKED_STALE_STATE"));
-                            return false;
-                        }
-                    }
-
-                    // 2. SAFE PUSH
-                    // Enforce strictly monotonic timestamps to overcome any minor NTP drift
-                    const pushTime = Math.max(Date.now(), memLastSynced + 1);
-                    
-                    // Stamp locally FIRST to prevent Firestore's local cache from triggering an echo loop
-                    this._markSynced(pushTime);
-
-                    MHCore.log(`[MHCore] Initiating push to Firestore (TS: ${pushTime})...`, null, 3);
-
-                    // Note: Removed `{ merge: true }` parameter here to ensure a true total-state replacement.
-                    // This guarantees nested properties (like deleted decks) are accurately reflected on the server.
-                    await fbFirestore.setDoc(docRef, {
-                        payload: payload,
-                        lastUpdated: pushTime,
-                        device: navigator.userAgent
-                    }); 
-                    
+                        // Strictly later than anything this device or the cloud has seen, despite clock drift
+                        const t = Math.max(Date.now(), memLastSynced + 1, cloudTime + 1);
+                        _ownPushTimes.push(t);
+                        if (_ownPushTimes.length > 20) _ownPushTimes.shift();
+                        // A true total-state replacement (no merge), so deleted nested items stay deleted.
+                        tx.set(docRef, { payload: payload, lastUpdated: t, device: navigator.userAgent });
+                        return t;
+                    });
+                    // Still dirty if a newer push is waiting behind this one
+                    this._markSynced(pushTime, seq !== _pushSeq);
                     MHCore.log(`[MHCore] Pushed state to vault: ${activeVaultId} (TS: ${pushTime})`, null, 2);
+                    // Optional (1.3.8): lets the app clear a "sync problem" state after a retried upload
+                    if (_callbacks.onSynced) _callbacks.onSynced(pushTime);
                     return true;
                 } catch (err) {
-                    MHCore.log(`[MHCore] Sync Push Error: ${err.message}`, null, 0);
-                    if (err.message === "PUSH_BLOCKED_STALE_STATE") throw err;
+                    if (staleCloud) {
+                        MHCore.log(`[MHCore] Push blocked! Cloud has newer data (${staleCloud.lastUpdated} > ${memLastSynced}).`, null, 0);
+                        if (_callbacks.onConflict) {
+                            this._raiseConflict(staleCloud);
+                        } else {
+                            this.disconnect();
+                            if (_onError) _onError(new Error("PUSH_BLOCKED_STALE_STATE"));
+                        }
+                        return false;
+                    }
+                    MHCore.log(`[MHCore] Sync Push Error: ${err.message}. Kept for retry.`, null, 0);
+                    if (!this._isReconnecting) this.reconnectNetwork('failed_push');
                     return false;
                 }
+            },
+
+            /**
+             * @private
+             * Asks the app's onConflict handler which copy to keep: this device's latest state or the cloud's.
+             * Used on a first join (Scenario D), and since 1.3.8 whenever newer cloud data meets unsynced
+             * local changes. `after` runs once the choice is applied.
+             */
+            _raiseConflict: function(cloudData, after) {
+                if (_conflictOpen) return;
+                _conflictOpen = true;
+                MHCore.log(`[MHCore] Sync Conflict Detected! (Cloud TS: ${cloudData.lastUpdated})`, null, 0);
+                _callbacks.onConflict(cloudData.lastUpdated, async (decision) => {
+                    _conflictOpen = false;
+                    if (decision === 'local') {
+                        MHCore.log("[MHCore] User resolved conflict: Pushing Local.", null, 2);
+                        await this.push(_pendingPayload || {}, true);
+                    } else if (decision === 'cloud') {
+                        MHCore.log(`[MHCore] User resolved conflict: Pulling Cloud (TS: ${cloudData.lastUpdated}).`, null, 2);
+                        if (_callbacks.onUpdate) _callbacks.onUpdate(cloudData.payload);
+                        this._markSynced(cloudData.lastUpdated, false);
+                    }
+                    if (after) after();
+                });
+            },
+
+            /**
+             * @private
+             * Retries the latest unsynced state once the network is back (nothing happens when nothing is waiting).
+             */
+            _retryPending: function(source) {
+                if (!isConnected || !_dirty || !_pendingPayload || _conflictOpen) return;
+                MHCore.log(`[MHCore] Retrying unsynced changes (${source}).`, null, 2);
+                this.push(_pendingPayload);
             },
 
             /**
@@ -366,6 +413,10 @@ let fbApp, fbAuth, fbFirestore;
                 activeVaultId = null;
                 activeAppId = null;
                 memLastSynced = 0; // Wipe RAM state
+                _dirty = false;
+                _pendingPayload = null;
+                _conflictOpen = false;
+                _ownPushTimes = [];
                 MHCore.log("[MHCore] Sync disconnected and trust manifest cleared.", null, 2);
             },
 
@@ -375,9 +426,16 @@ let fbApp, fbAuth, fbFirestore;
              * when the snapshot listener fires.
              * @param {number} timestamp - The exact lastUpdated timestamp from the synced payload
              */
-            _markSynced: function(timestamp) {
+            _markSynced: function(timestamp, dirty) {
                 memLastSynced = timestamp || Date.now();
-                MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: memLastSynced });
+                if (dirty !== undefined) _dirty = dirty;
+                MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: memLastSynced, dirty: _dirty });
+            },
+
+            /** @private Records whether this device has changes the cloud has not confirmed (1.3.8). */
+            _setDirty: function(dirty) {
+                _dirty = dirty;
+                if (activeAppId && activeVaultId) MHCore.storage.set(`mhcore_sync_${activeAppId}_${activeVaultId}`, { lastSynced: memLastSynced, dirty: _dirty });
             },
 
             /**
@@ -396,9 +454,15 @@ let fbApp, fbAuth, fbFirestore;
                         MHCore.log(`[MHCore] Snapshot Fired. Cloud: ${data.lastUpdated} | RAM: ${memLastSynced}`, null, 3);
 
                         // Use isolated RAM state, NOT localStorage, to prevent multi-tab crosstalk.
-                        if (data.lastUpdated > memLastSynced) {
+                        if (_ownPushTimes.includes(data.lastUpdated)) {
+                            // This device's own upload coming back (the server confirmed it even if the reply was lost)
+                            if (data.lastUpdated > memLastSynced) this._markSynced(data.lastUpdated);
+                        } else if (data.lastUpdated > memLastSynced && _dirty && _callbacks.onConflict) {
+                            // Another device moved on while this one has unconfirmed changes: ask, don't overwrite (1.3.8)
+                            this._raiseConflict(data);
+                        } else if (data.lastUpdated > memLastSynced) {
                             MHCore.log(`[MHCore] Remote update received (TS: ${data.lastUpdated}).`, null, 2);
-                            this._markSynced(data.lastUpdated);
+                            this._markSynced(data.lastUpdated, false);
                             if (onUpdateCallback) onUpdateCallback(data.payload);
                         } else {
                             MHCore.log(`[MHCore] Remote update ignored (Cloud ${data.lastUpdated} <= RAM ${memLastSynced}).`, null, 3);
@@ -478,6 +542,7 @@ let fbApp, fbAuth, fbFirestore;
                             await Promise.race([enablePromise, timeoutPromise]);
                             
                             MHCore.log("[MHCore] Network recovery success. Connection re-enabled.", null, 2);
+                            MHCore.sync._retryPending('network_recovered');
                             break; // Success!
                         } catch (e) {
                             retries++;
@@ -546,6 +611,7 @@ let fbApp, fbAuth, fbFirestore;
                         
                         clearTimeout(timeoutId);
                         // Deliberately hidden from Verbosity 2 to prevent spamming the log screen
+                        this._retryPending('watchdog');
                     } catch (e) {
                         MHCore.log(`[MHCore] Watchdog detected dead connection (${e.name}). Triggering recovery...`, null, 0);
                         this.reconnectNetwork('watchdog_timeout');
