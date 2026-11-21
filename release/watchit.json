@@ -1,0 +1,16 @@
+{
+  "version": "0.1.0",
+  "url": "https://matthodges.itch.io/watchit",
+  "bundle_rules": {
+    "include": [
+      "index.html",
+      "favicon.svg",
+      "favicon-dark.svg",
+      "assets/"
+    ]
+  },
+  "version_file": "src/config.ts",
+  "build_cmd": "npm run build",
+  "notes": "New app (2026-11-21), unreleased and private. No itch page yet; registered for the version and APK tooling.",
+  "dev_version_file": "src/config.ts"
+}
